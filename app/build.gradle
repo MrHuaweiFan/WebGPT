@@ -39,6 +39,14 @@ android {
             signingConfig signingConfigs.debug
         }
     }
+
+    // AGP 8+ adds a "Dependency metadata" block to the APK signing block.
+    // F-Droid's scanner rejects this as an unknown extra signing block.
+    // Disable it so the APK can pass F-Droid's binary scan.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
 }
 
 dependencies {
