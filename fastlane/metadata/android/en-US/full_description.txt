@@ -1,0 +1,73 @@
+WebGPT is a feature-rich Android WebView wrapper that loads the ChatGPT website (chatgpt.com). It is designed for devices without Google Mobile Services (GMS) and gives the user fine-grained control over which WebView implementation is actually used to render the page.
+
+Independence & trademark notice
+
+WebGPT is an independent, unofficial client. It is not affiliated with, endorsed by, or sponsored by OpenAI. The WebGPT name, icon and source code are this project's own; they do not use the ChatGPT trademark or logo. WebGPT simply loads the public chatgpt.com website inside an Android WebView, the same way any general-purpose browser would.
+
+Key features
+
+• WebView wrapping chatgpt.com with session cookie persistence.
+• Clean User-Agent: removes the Android WebView X-Requested-With detection marker so the site behaves as it would in a desktop browser.
+• Material 3 design with a blue theme palette, full dark-mode support and pure-black dark mode (#000000 status bar and background).
+• Vector adaptive launcher icon (no PNGs for the foreground).
+
+WebView Switcher (the headline feature)
+
+• In-app WebView provider picker: switch the WebView implementation at runtime without affecting any other app on the device.
+• 13 supported providers: Android System WebView, Chrome (stable/beta/dev/canary), Thorium, Mulch, Huawei WebView, Amazon WebView.
+• Built-in downloader tab with links to Google Play, Thorium (GitHub) and Mulch (GitLab) repository pages.
+• Crash recovery: after 3 consecutive crashes, the app automatically redirects to the WebView picker so the user can select a different provider.
+• Developer-mode flags: an optional "Optimize WebView performance" toggle installs a synthetic DeveloperModeContentProvider that enables ignore-gpu-blocklist and WebViewSurfaceControl on the chosen WebView.
+
+Loading screen
+
+• Spinning WebGPT logo with fade animation.
+• Theme-aware: black logo on white background in light mode, white logo on black background in dark mode, with a 1500 ms overlay delay so there is no white flash in dark mode.
+• Smooth 400 ms fade-out (accelerate interpolator) instead of an abrupt disappearance.
+
+Hidden Settings (Material 3 UI)
+
+• Accessible via the floating button at the top-right of the main screen, or via the gear icon in Android's App info screen.
+• First-launch welcome dialog that tells new users about the hidden settings menu and known limitations.
+• Desktop-mode toggle (forces desktop layout of the wrapped site).
+• Optimize WebView performance toggle (GPU blocklist bypass + surface control).
+• Check for updates button: queries GitHub releases and opens the release download page in the user's default browser.
+
+File handling
+
+• Downloads are saved to the public Download/ folder with the original filename (MediaStore API on Android 10+).
+• Blob URL downloads: attempts to fetch blob: URLs via in-page JavaScript, with a helpful toast if the fetch times out.
+• File upload with multi-select file picker and camera capture (full resolution via FileProvider).
+• Image context menu: long-press any image to get a Material 3 dialog with "Share image" and "Download image" buttons.
+
+Sharing
+
+• Share to WebGPT: receive shared text/files from any app (ACTION_SEND intent-filter, labelled "Send to WebGPT").
+• Ask WebGPT: appears in Android's text-selection menu (ACTION_PROCESS_TEXT), copies text to the clipboard for pasting.
+• Copy button: navigator.share({ text }) override delegates to AndroidBridge.copyToClipboard() (fixes the site's Copy button on WebViews that don't support the async Clipboard API).
+• External links (X, Reddit, LinkedIn, etc.) open in the system browser.
+
+Camera & microphone
+
+• Auto-grants WebView permissions (onPermissionRequest).
+• OS-level permissions requested at app startup.
+
+Popup WebView
+
+• Proper popup support for OAuth flows (Google sign-in).
+• Shared cookie jar via CookieManager.
+• AndroidBridge JS interface injected for native communication.
+
+Known limitations
+
+• Chat/image sharing: the wrapped site's native Share button is unreliable and does not work on all devices. Long-press an image and choose "Share image" as the reliable alternative.
+• Microphone dictation: voice input detects the WebView environment and refuses to start, despite permissions being granted. Selecting an alternative WebView could resolve the problem.
+• Google sign-in: Google blocks OAuth in Android WebViews ("browser or app may not be secure"). Retry — Google sometimes lets you through on the second attempt. Email sign-in works without issues.
+
+Tech stack
+
+Android Gradle Plugin 8.2.2, Gradle 8.5, JDK 21, compileSdk 34, minSdk 21, targetSdk 34, Material Components 1.11.0, androidx.recyclerview 1.3.2, androidx.webkit 1.10.0, R8 minification enabled.
+
+Licensing
+
+WebGPT is free software released under the MIT License. The full source code is available in the project's repository.
