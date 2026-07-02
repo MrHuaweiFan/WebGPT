@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  WebGPT launcher icon foreground: a flower built from 6 hollow circles (rings) —
+  6 petal rings arranged radially (every 60°) with no center circle, all stroked
+  black with transparent centers (like the letter O). The overlapping rings
+  create a flower-of-life-style geometric pattern with an open center.
+
+  Drawn on a 108x108dp adaptive-icon canvas; visible content spans the full
+  66x66 safe zone (21..87). Foreground is black; the background
+  (ic_launcher_background.xml) is #FCFCFC white, giving the same look in
+  both light and dark themes.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M44.2500,39.0000 A9.7500,9.7500 0 1 1 63.7500,39.0000 A9.7500,9.7500 0 1 1 44.2500,39.0000 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M57.2404,46.5000 A9.7500,9.7500 0 1 1 76.7404,46.5000 A9.7500,9.7500 0 1 1 57.2404,46.5000 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M57.2404,61.5000 A9.7500,9.7500 0 1 1 76.7404,61.5000 A9.7500,9.7500 0 1 1 57.2404,61.5000 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M44.2500,69.0000 A9.7500,9.7500 0 1 1 63.7500,69.0000 A9.7500,9.7500 0 1 1 44.2500,69.0000 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M31.2596,61.5000 A9.7500,9.7500 0 1 1 50.7596,61.5000 A9.7500,9.7500 0 1 1 31.2596,61.5000 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="3.0"
+        android:pathData="M31.2596,46.5000 A9.7500,9.7500 0 1 1 50.7596,46.5000 A9.7500,9.7500 0 1 1 31.2596,46.5000 Z" />
+</vector>
