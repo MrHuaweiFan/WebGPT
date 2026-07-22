@@ -1,0 +1,5 @@
+What's new
+
+- New private signing key (old public key replaced for security)
+- Loading screen flash bug fixed
+- READ_PHONE_STATE permission removed

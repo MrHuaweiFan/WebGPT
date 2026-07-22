@@ -1,0 +1,4 @@
+What's new
+
+- READ_PHONE_STATE permission removed
+- Loading screen flash bug fixed
