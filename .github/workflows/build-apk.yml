@@ -38,10 +38,12 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Decode signing keystore
-        if: ${{ secrets.WEBGPT_KEYSTORE_BASE64 != '' }}
+        env:
+          WEBGPT_KEYSTORE_BASE64: ${{ secrets.WEBGPT_KEYSTORE_BASE64 }}
+        if: env.WEBGPT_KEYSTORE_BASE64 != ''
         run: |
           mkdir -p $HOME/.keystore
-          echo "${{ secrets.WEBGPT_KEYSTORE_BASE64 }}" | base64 -d > $HOME/.keystore/webgpt-release.keystore
+          echo "$WEBGPT_KEYSTORE_BASE64" | base64 -d > $HOME/.keystore/webgpt-release.keystore
           echo "WEBGPT_KEYSTORE=$HOME/.keystore/webgpt-release.keystore" >> $GITHUB_ENV
           echo "WEBGPT_KEYSTORE_PASSWORD=${{ secrets.WEBGPT_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
           echo "WEBGPT_KEY_ALIAS=${{ secrets.WEBGPT_KEY_ALIAS }}" >> $GITHUB_ENV
