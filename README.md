@@ -99,17 +99,6 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 # Output: app/build/outputs/apk/release/app-release.apk
 ```
 
-### GitHub Actions
-The repo includes a GitHub Actions workflow (`.github/workflows/build-apk.yml`) that builds both debug and release APKs on every push. The release APK is signed with the bundled `test.keystore` (alias: `test`, password: `test123`).
-
-### Signing
-```bash
-keytool -genkey -v -keystore test.keystore -storetype PKCS12 \
-  -keyalg RSA -keysize 2048 -validity 10000 \
-  -alias test -storepass test123 -keypass test123 \
-  -dname "CN=WebGPT, OU=App, O=WebGPT, L=City, ST=State, C=ES"
-```
-
 ## Architecture
 
 ```
