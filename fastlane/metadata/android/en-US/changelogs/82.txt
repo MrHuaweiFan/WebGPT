@@ -1,0 +1,5 @@
+What's new
+
+- SECURITY: Removed onReceivedSslError override (no longer accepts invalid HTTPS certs)
+- SECURITY: Removed MIXED_CONTENT_ALWAYS_ALLOW (default secure mode now applies)
+- Permissions: Camera/mic now requested only when the site invokes them, not at startup
