@@ -1,6 +1,6 @@
 # WebGPT
 
-A feature-rich Android WebView wrapper that loads the ChatGPT website (`chatgpt.com`), designed for devices without Google Mobile Services (GMS). Built entirely with **GLM 5.2 agent mode through Z.AI** — this app was coded, compiled, and iteratively debugged by an AI agent, testing the limits of what's possible with LLM-driven development.
+A feature-rich Android WebView wrapper that loads the ChatGPT website (`chatgpt.com`), designed for devices without Google Mobile Services (GMS). Built entirely with **GLM agent mode through Z.AI** — this app was coded, compiled, and iteratively debugged by an AI agent, testing the limits of what's possible with LLM-driven development.
 
 > **WebGPT is an independent, unofficial client.** It is not affiliated with, endorsed by, or sponsored by OpenAI. The WebGPT name, icon, and source code are this project's own — they do not use the ChatGPT trademark or logo. WebGPT simply loads the public `chatgpt.com` website inside an Android WebView, the same way any general-purpose browser would.
 
