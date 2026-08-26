@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Spin + fade animation for the loading logo.
+  The logo rotates 360 degrees while fading in and out, creating a calm
+  "thinking" effect. Loops infinitely until the page loads.
+-->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shareInterpolator="false">
+
+    <!-- Continuous rotation (1 second per revolution) -->
+    <rotate
+        android:fromDegrees="0"
+        android:toDegrees="360"
+        android:pivotX="50%"
+        android:pivotY="50%"
+        android:duration="2000"
+        android:repeatCount="infinite"
+        android:interpolator="@android:interpolator/linear" />
+
+    <!-- Fade in and out cycle -->
+    <alpha
+        android:fromAlpha="0.3"
+        android:toAlpha="1.0"
+        android:duration="1000"
+        android:repeatCount="infinite"
+        android:repeatMode="reverse"
+        android:interpolator="@android:interpolator/accelerate_decelerate" />
+
+</set>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Allow sharing files saved to the app's external files dir (Downloads) -->
+    <external-files-path name="downloads" path="Download/" />
+    <!-- Root of external files dir — for the old update APK cleanup -->
+    <external-files-path name="external_files_root" path="." />
+    <files-path name="internal" path="." />
+    <cache-path name="app_cache" path="." />
+</paths>

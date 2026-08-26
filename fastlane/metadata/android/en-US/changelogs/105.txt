@@ -1,0 +1,11 @@
+What's new
+
+Major stability, privacy and bugfix update:
+
+- No more random relaunches; survives floating windows, split-screen and rotation; restores your chat after background kill
+- Fixed black screens (external links, resume flash)
+- Shared files attach automatically; shared text opens ready to paste
+- In-chat Share button works; exports download correctly
+- Keyboard no longer auto-opens in existing chats
+- Voice/camera permissions fixed; privacy hardened
+- Removed broken desktop mode
