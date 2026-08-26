@@ -78,7 +78,6 @@ to leave alone.
 - AndroidBridge JS interface injected for native communication
 
 ### Known limitations
-- **Chat/image sharing** — the wrapped site's native Share button is unreliable on some devices. Long-press an image → "Share image" as the reliable alternative
 - **Microphone dictation** — voice input may refuse to start despite permissions. Selecting the alternative WebView could resolve the problem
 - **Google sign-in** — Google blocks OAuth in Android WebViews ("browser or app may not be secure"). Email sign-in works without issues
 
