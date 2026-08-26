@@ -24,7 +24,7 @@
 
     <!-- First-launch welcome dialog -->
     <string name="welcome_title">Welcome to WebGPT</string>
-    <string name="welcome_body">This app has a hidden Settings menu where you can switch to a faster WebView (Thorium is recommended) and optimize performance.\n\nOpen it any time from Android\'s App info screen: tap the gear icon next to \"WebGPT\".\n\nNote: the in-chat Share button (for sharing chat links and images) is unreliable and does not work on all devices. To share an image, long-press it and choose \"Share image\".</string>
+    <string name="welcome_body">This app has a hidden Settings menu where you can switch to a faster WebView (Thorium is recommended) and optimize performance.\n\nOpen it any time from Android\'s App info screen: tap the gear icon next to \"WebGPT\".\n\nNote: To download or share an image as a file, long-press it and choose \"Download/Share image\".</string>
 
     <!-- Image actions bottom sheet -->
     <string name="image_actions_title">Image</string>
