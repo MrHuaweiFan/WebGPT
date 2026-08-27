@@ -1,0 +1,6 @@
+What's new
+
+- SECURITY: DNS-boundary host validation (rejects evilchatgpt.com etc.)
+- SECURITY: onPermissionRequest now grants only audio/video after Android permission check
+- SECURITY: Removed usesCleartextTraffic and user-CA trust (network_security_config.xml)
+- SECURITY: WebView debugging restricted to debug builds
