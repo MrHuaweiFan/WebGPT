@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash screen "icon": intentionally fully transparent.
+     An early v6.27 draft drew the app logo here, but the Android 12+
+     system splash renders windowSplashScreenAnimatedIcon inside its own
+     fixed-size icon container (masked/scaled per OEM), which looked wrong
+     on several devices. The released v6.27 shows NO icon at all: the
+     splash is nothing but windowSplashScreenBackground — the exact color
+     of the in-app loading screen — so the 300 ms exit crossfade simply
+     fades the loading screen (same background, centered logo) in. Nothing
+     else draws here. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#00000000" />
+</shape>
