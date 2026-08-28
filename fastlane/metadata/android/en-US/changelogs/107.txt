@@ -1,9 +1,8 @@
 What's new
 
-Login, launch and settings polish:
+Launch and settings polish:
 
-- Fixed the crash when signing in with Google or email on Android 15
-- Launch splash is now the loading screen's background color in light and dark mode — no icon, no flashing, on every device
+- Launch splash is now the loading screen's background color in light and dark mode
 - "Understood" in Learn more returns you to the WebView Manager instead of closing it
 - WebView Manager: download links no longer cut off at large font sizes; rounded press feedback on installed WebViews
 - Settings header now reads "WebGPT"
