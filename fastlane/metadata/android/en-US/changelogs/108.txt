@@ -1,0 +1,6 @@
+What's new
+
+- The loading logo now spins smoothly (it used to stutter while the page loaded)
+- New optional progress bar (Settings): it can't be fooled by ChatGPT's early "fully loaded" signal — it only completes when the app's real page-ready detection fires
+- The status bar now follows system dark/light mode switches without restarting
+- Settings: proper Material Design info icon, now matching the text color in both modes

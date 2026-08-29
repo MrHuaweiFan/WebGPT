@@ -1,0 +1,60 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <WebView
+        android:id="@+id/activity_main_webview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Loading overlay — spinning logo with fade in/out.
+         Background matches device theme (black in dark mode, white in light mode).
+         Stays visible until the page has fully loaded its theme to avoid white flash. -->
+    <FrameLayout
+        android:id="@+id/loading_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="visible">
+
+        <!-- Optional page-progress bar (Settings → Interface, off by
+             default). Material 3 LinearProgressIndicator with the library's
+             spec defaults (4dp track, rounded 2dp ends, gap + stop dot —
+             material 1.12); only the active color is overridden — the SAME
+             #2F628C blue in light AND dark mode (v6.28 final choice; see
+             values/colors.xml loading_progress_indicator). It lives INSIDE
+             the overlay so it appears exactly when the logo appears and
+             fades out with the whole overlay — it never animates or pulses
+             on its own. Progress is HONEST, not raw: chatgpt.com reports
+             100% before the SPA has hydrated (the misleading full load the
+             loading screen's detection system exists for), so the bar maps
+             the raw percentage onto 0–90% and is only completed to 100% by
+             hideLoadingOverlayNow() — the same real-ready signal that
+             dismisses the loading screen. -->
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/loading_progress_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:indeterminate="false"
+            android:visibility="gone"
+            app:indicatorColor="@color/loading_progress_indicator" />
+
+        <ImageView
+            android:id="@+id/loading_logo"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="center"
+            android:src="@drawable/logo_black"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:contentDescription="loading" />
+
+    </FrameLayout>
+
+</FrameLayout>

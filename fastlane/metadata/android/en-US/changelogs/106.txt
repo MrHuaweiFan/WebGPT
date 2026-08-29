@@ -1,0 +1,7 @@
+What's new
+
+Login crash fix:
+
+- Fixed the crash when tapping "Continue with Google" or "Continue with Email" on Android 15
+- Google sign-in now stays inside the app instead of bouncing to your browser mid-login
+- Popups are torn down more safely during sign-in and downloads

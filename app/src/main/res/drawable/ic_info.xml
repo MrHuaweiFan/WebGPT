@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material "info" icon (Material Symbols, filled, 24dp) for the Google
+     sign-in info card in Settings. ⚠ The color lives HERE, as a day/night
+     color-resource reference — NOT as app:tint at the usage site:
+     SettingsActivity extends the plain framework Activity, so <ImageView>
+     inflates as the FRAMEWORK ImageView, which silently ignores app:tint
+     (an AppCompatImageView-only attribute). That mistake shipped in an
+     early v6.28 draft and the icon rendered its literal black fillColor in
+     both modes while the card text adapted. fillColor=@color/… resolves
+     per configuration inside VectorDrawable itself, so the glyph always
+     matches the text color (md_onSecondaryContainer — the exact color the
+     card's TextViews get via ?attr/colorOnSecondaryContainer), day and
+     night. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@color/md_onSecondaryContainer"
+        android:pathData="M11,7h2v2h-2V7z M11,11h2v6h-2V11z M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2z" />
+</vector>

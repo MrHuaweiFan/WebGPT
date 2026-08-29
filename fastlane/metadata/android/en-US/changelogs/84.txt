@@ -1,0 +1,3 @@
+What's new
+
+- Added Gradle wrapper distributionSha256Sum for supply-chain verification
