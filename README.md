@@ -21,7 +21,7 @@ in the family ships a **`WEBSITE_SPECIFICS.md`** in the repository root:
   WebGPT, using the same structure.
 
 That file is what makes it possible to port new features from a newer WebGPT
-into a derivative app (usually with an LLM's help) without breaking the
+into a derivative app without breaking the
 site-specific layer. If you fork this project for another website, read
 `WEBSITE_SPECIFICS.md` first — it tells you exactly what to change and what
 to leave alone.
