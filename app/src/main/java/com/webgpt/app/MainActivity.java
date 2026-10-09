@@ -123,6 +123,19 @@ public class MainActivity extends Activity {
     // file-picker invocation.
     private volatile Uri pendingShareFileUri;
 
+    // When pendingShareFileUri was set (elapsedRealtime). The auto-attach
+    // handover in openFileChooser is a TRANSACTION: it only fires for the
+    // MAIN WebView's file chooser, and only within this window. After it
+    // expires the file is dropped (and the normal system picker opens) —
+    // a stale share can never silently attach to a much later picker (the
+    // F-Droid review's "pending shared file consumed by the wrong WebView
+    // file chooser" — the chooser is now bound to the share transaction,
+    // not to whichever WebView happens to ask next).
+    private volatile long pendingShareReceivedAt;
+    // Auto-attach window: generous enough for a cold start + slow page load
+    // (the 25s fallback toast already told the user to tap + manually).
+    private static final long SHARE_ATTACH_WINDOW_MS = 60000L;
+
     // Pending WebView permission request (camera/mic) while the OS dialog is up
     private PermissionRequest pendingWebPermissionRequest;
 
@@ -159,9 +172,33 @@ public class MainActivity extends Activity {
     private volatile long lastBlobSaveAt;
     private volatile int lastBlobSaveLen;
 
-    // Chunked blob transfer accumulation (JS sends big exports in 256KB pieces)
+    // Chunked blob transfer accumulation (JS sends big exports in 256KB pieces).
+    //
+    // v6.28 build 12 (F-Droid review): the accumulator is now BOUNDED.
+    // Previously any frame could append unbounded base64 into per-name
+    // StringBuilders that never expired — a memory-exhaustion primitive
+    // ("onBlobChunk() is additionally ungated and unbounded"). Bounds:
+    //   - MAX_BLOB_TRANSFERS: concurrent transfers (real usage is 1-2)
+    //   - MAX_CHUNK_CHARS: per chunk (the injected JS sends 262144)
+    //   - MAX_B64_CHARS: total accumulated payload per transfer
+    //     (~120MB decoded; the JS-side blob keeper already caps at 128MB)
+    //   - TRANSFER_IDLE_MS: an abandoned/stalled transfer is swept
+    //   - strict chunk ordering (index == received): replays or splices
+    //     reset the transfer instead of growing it
     final Object blobChunksLock = new Object();
-    final java.util.HashMap<String, StringBuilder> blobChunks = new java.util.HashMap<>();
+    final java.util.HashMap<String, BlobTransfer> blobChunks = new java.util.HashMap<>();
+
+    /** One chunked blob transfer in progress (name -> accumulator). */
+    static final class BlobTransfer {
+        final StringBuilder buf = new StringBuilder();
+        int received;          // number of chunks accepted so far (== next index)
+        long lastAtMs;         // elapsedRealtime of the last accepted chunk
+    }
+
+    private static final int MAX_BLOB_TRANSFERS = 4;
+    private static final int MAX_CHUNK_CHARS = 262144;
+    private static final int MAX_B64_CHARS = 160 * 1000 * 1000;
+    private static final long TRANSFER_IDLE_MS = 60000L;
 
     // Set when the JS bridge delivers a blob save; suppresses the dead-URL
     // DownloadListener fallback (and its failure toasts) for a few seconds.
@@ -566,11 +603,16 @@ public class MainActivity extends Activity {
 
     /**
      * Handle shared file — copy the file to the app's cache dir, then try to
-     * attach it AUTOMATICALLY: the injected sequence clicks the site's own
-     * "+" button and its "Files" menu item, which makes the site call the
-     * file chooser — and onShowFileChooser hands over this file with zero
-     * user interaction. (Android forbids pushing a file into the page any
-     * other way; the page must ask first.)
+     * attach it AUTOMATICALLY: the base64 drop-injection pipeline feeds it
+     * straight into the site's composer. The copied file is ALSO kept as a
+     * pendingShareFileUri fallback: if injection is not possible (huge
+     * file), the site's own "+ → Files" flow opens the file chooser — and
+     * onShowFileChooser then hands over this file with zero user
+     * interaction, but ONLY to the MAIN WebView's chooser and only within
+     * the attach-transaction window (see openFileChooser — v6.28 build 12,
+     * F-Droid review: a popup's chooser can never consume it).
+     * (Android forbids pushing a file into the page any other way; the page
+     * must ask first.)
      */
     private void handleSharedFile(Uri fileUri, String mime) {
         Log.i(TAG, "handleSharedFile: " + fileUri + " (" + mime + ")");
@@ -628,6 +670,13 @@ public class MainActivity extends Activity {
 
                 runOnUiThread(() -> {
                     pendingShareFileUri = sharedUri;  // manual +->Files fallback
+                    // Attach-transaction timestamp: openFileChooser only
+                    // auto-hands the file to the MAIN WebView's chooser, and
+                    // only within SHARE_ATTACH_WINDOW_MS of this moment
+                    // (v6.28 build 12, F-Droid review — bind the share to
+                    // its transaction, not to the next file chooser of any
+                    // WebView).
+                    pendingShareReceivedAt = SystemClock.elapsedRealtime();
                     if (fileB64 != null) {
                         pendingFileB64 = fileB64;
                         pendingFileName = fileFinalName;
@@ -911,29 +960,89 @@ public class MainActivity extends Activity {
         private final MainActivity activity;
         private final WebView hostWebView;
 
+        /**
+         * Sticky bridge-trust revocation (POPUPS only; never set on the main
+         * WebView's interface). Set when the popup's TOP-LEVEL frame has been
+         * observed on a non-allowlisted http(s) origin — including redirect
+         * hops, which bypass shouldOverrideUrlLoading but always fire
+         * onPageStarted. Once set, the bridge never serves this WebView
+         * again, even if it later navigates back to an allowlisted host.
+         */
+        private volatile boolean trustRevoked;
+
         WebAppInterface(MainActivity activity, WebView hostWebView) {
             this.activity = activity;
             this.hostWebView = hostWebView;
         }
 
+        /** See the field comment. Called from the popup's onPageStarted. */
+        void revokeTrust() {
+            trustRevoked = true;
+            debugLog("bridge trust REVOKED for " + hostWebView.getUrl());
+        }
+
         /**
          * Origin gate: the bridge only serves pages hosted on our allowlisted
-         * domains. POPUP WebViews (share menus, blob:/about:blank windows)
-         * inherit trust from the main WebView — in this app popups are only
-         * ever spawned by an allowlisted page (onCreateWindow), so a popup
-         * with a blank/blob URL is still "ours". Without this, the site's
-         * share menu (opened in a popup) was silently rejected right after
-         * the "share called" toast.
+         * domains.
+         *
+         * v6.28 build 12 (F-Droid review, "caller origin is not actually
+         * established"): the OLD gate granted EVERY popup bridge access as
+         * long as the MAIN WebView was allowlisted — no matter where the
+         * popup itself had navigated (a 302 from the OAuth chain onto a
+         * foreign host landed silently in the popup, because redirects do
+         * not pass shouldOverrideUrlLoading, and the popup kept full bridge
+         * access by inheritance). The new model:
+         *
+         *  - MAIN WebView: allowed while its top-level URL is allowlisted
+         *    (unchanged — with addJavascriptInterface the Java side cannot
+         *    see the calling FRAME's origin; that needs WebMessageListener,
+         *    which is on the roadmap as the follow-up hardening step).
+         *  - POPUP WebView: allowed only while the popup's OWN top-level URL
+         *    is allowlisted, OR while it is a "blank shell" (null /
+         *    about:blank / blob:) — the site's share/export UI runs in
+         *    blob: popup windows, so blank shells keep creation-time
+         *    provenance trust (popups can only be spawned by the main page —
+         *    popups themselves have no onCreateWindow handler). Any
+         *    observation of the popup's top frame on a foreign http(s)
+         *    origin revokes that trust permanently (see revokeTrust).
+         *  - No cross-WebView inheritance: the main WebView being
+         *    allowlisted grants NOTHING to a different WebView.
          */
         private boolean hostAllowed() {
             try {
+                if (trustRevoked) {
+                    debugLog("bridge blocked: trust revoked");
+                    return false;
+                }
                 if (urlAllowed(hostWebView.getUrl())) return true;
-                WebView main = activity.webview;
-                if (main != null && main != hostWebView && urlAllowed(main.getUrl())) {
-                    return true;  // popup spawned by an allowlisted page
+                if (hostWebView != activity.webview
+                        && isBlankShellUrl(hostWebView.getUrl())) {
+                    return true;  // blob:/about:blank popup of our own page
                 }
                 debugLog("bridge blocked: " + hostWebView.getUrl());
                 return false;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+
+        /**
+         * "Blank shell" popup URLs: the not-yet-navigated popup and the
+         * blob:/about:blank windows the site opens for its share/export UI.
+         * These carry no origin of their own; their trust comes from
+         * provenance (spawned by our main page via onCreateWindow) and is
+         * revoked on first foreign navigation (revokeTrust). data: URLs are
+         * deliberately NOT blank shells — the site's share UI never uses
+         * them, and a data: document runs scripts under an opaque origin we
+         * have no reason to serve.
+         */
+        private static boolean isBlankShellUrl(String url) {
+            if (url == null || url.isEmpty()) return true;
+            try {
+                String scheme = Uri.parse(url).getScheme();
+                if (scheme == null) return true;
+                String s = scheme.toLowerCase(Locale.ROOT);
+                return s.equals("about") || s.equals("blob");
             } catch (Throwable t) {
                 return false;
             }
@@ -1030,6 +1139,9 @@ public class MainActivity extends Activity {
         /** Blob-download callback: the in-page fetch or read failed. */
         @JavascriptInterface
         public void onBlobFailed() {
+            // v6.28 build 12: gated for consistency — it mutates shared
+            // blob-download state, so an unserved frame must not reach it.
+            if (!hostAllowed()) return;
             activity.runOnUiThread(() -> activity.handleBlobFailed());
         }
 
@@ -1050,28 +1162,88 @@ public class MainActivity extends Activity {
          * limits. @JavascriptInterface calls are synchronous from JS, so the
          * chunks arrive in order; the final chunk (index == total-1)
          * assembles and saves the file.
+         *
+         * v6.28 build 12 (F-Droid review): this method was previously the
+         * ONE high-bandwidth bridge entry point with NO origin gate and NO
+         * resource bounds — any frame served by the bridge could grow
+         * per-name StringBuilders without limit and without expiry. It is
+         * now gated like every other bridge method AND hard-bounded: see
+         * the constants next to blobChunks for the caps and their rationale.
          */
         @JavascriptInterface
         public void onBlobChunk(final String name, final String mime, final int index,
                                 final int total, final String data) {
+            if (!hostAllowed()) return;
+            // Parameter validation — reject (never throw) on bad input:
+            // the bridge is callable from web content, so every argument is
+            // attacker-controlled from the gate's point of view.
+            if (name == null || name.isEmpty() || name.length() > 256) return;
+            if (total < 1 || index < 0 || index >= total) return;
+            if (data == null || data.length() > MAX_CHUNK_CHARS) return;
+            final String safeMime = sanitizeMime(mime);
             String b64 = null;
+            final long now = SystemClock.elapsedRealtime();
             synchronized (activity.blobChunksLock) {
-                StringBuilder sb = activity.blobChunks.get(name);
-                if (sb == null) {
-                    sb = new StringBuilder();
-                    activity.blobChunks.put(name, sb);
+                // Idle sweep: drop transfers that have not made progress for
+                // TRANSFER_IDLE_MS (abandoned page, closed popup, or a
+                // stalled sender) so the accumulator can never leak. An
+                // explicit Iterator is used (not Collection.removeIf)
+                // because minSdk is 21 and core-library desugaring is off.
+                java.util.Iterator<java.util.Map.Entry<String, BlobTransfer>> it =
+                        activity.blobChunks.entrySet().iterator();
+                while (it.hasNext()) {
+                    if (now - it.next().getValue().lastAtMs > TRANSFER_IDLE_MS) {
+                        it.remove();
+                    }
                 }
-                sb.append(data);
+                BlobTransfer t = activity.blobChunks.get(name);
+                if (t == null) {
+                    if (index != 0) return;  // transfers start at chunk 0
+                    if (activity.blobChunks.size() >= MAX_BLOB_TRANSFERS) {
+                        debugLog("blob transfer rejected: too many concurrent");
+                        return;
+                    }
+                    t = new BlobTransfer();
+                    activity.blobChunks.put(name, t);
+                } else if (index != t.received) {
+                    // Strict sequencing: the only real caller sends chunks
+                    // 0..total-1 in one synchronous loop. Anything else is a
+                    // replay/splice — drop the whole transfer.
+                    activity.blobChunks.remove(name);
+                    debugLog("blob transfer reset: out-of-order chunk");
+                    return;
+                }
+                if (t.buf.length() + data.length() > MAX_B64_CHARS) {
+                    activity.blobChunks.remove(name);
+                    debugLog("blob transfer aborted: size cap");
+                    return;
+                }
+                t.buf.append(data);
+                t.received = index + 1;
+                t.lastAtMs = now;
                 if (index == total - 1) {
-                    b64 = sb.toString();
+                    b64 = t.buf.toString();
                     activity.blobChunks.remove(name);
                 }
             }
             if (b64 != null) {
                 final String payload = b64;
                 activity.runOnUiThread(() ->
-                        activity.handleBlobDownload(name, "data:" + mime + ";base64," + payload));
+                        activity.handleBlobDownload(name, "data:" + safeMime + ";base64," + payload));
             }
+        }
+
+        /** Collapse a claimed MIME type to a safe short token (or a
+         *  generic fallback). The value is concatenated into the data URL
+         * consumed by handleBlobDownload, so it must never carry control
+         * characters or arbitrary length. */
+        private static String sanitizeMime(String mime) {
+            if (mime == null || mime.isEmpty()) return "application/octet-stream";
+            String m = mime.trim().toLowerCase(Locale.ROOT);
+            if (m.length() > 64 || !m.matches("[\\w.+-]+/[\\w.+-]+")) {
+                return "application/octet-stream";
+            }
+            return m;
         }
 
         /**
@@ -1092,9 +1264,12 @@ public class MainActivity extends Activity {
         }
 
         /** Drop-injection result (functional, not debug): clears the manual
-         *  fallback on success, prompts the user on failure. */
+         *  fallback on success, prompts the user on failure. v6.28 build 12:
+         *  gated — an unserved frame must not be able to ack/cancel the
+         *  user's pending share transaction. */
         @JavascriptInterface
         public void onFileDropResult(final boolean ok, final String detail) {
+            if (!hostAllowed()) return;
             activity.runOnUiThread(() -> activity.handleFileDropResult(ok, detail));
         }
     }
@@ -1244,15 +1419,25 @@ public class MainActivity extends Activity {
                                              FileChooserParams fileChooserParams) {
                 // Shared implementation (was previously duplicated in the
                 // popup client, and the two copies had drifted apart).
-                return openFileChooser(callback);
+                // The invoking WebView is passed through so the pending
+                // shared file can only ever be handed to the MAIN
+                // WebView's chooser (v6.28 build 12, F-Droid review).
+                return openFileChooser(w, callback);
             }
 
             @Override
             public boolean onCreateWindow(WebView view, boolean isDialog,
                                           boolean isUserGesture, Message resultMsg) {
-                // The window.open JS override handles external links (X, Reddit, LinkedIn)
-                // BEFORE they reach onCreateWindow. Internal popups (share menu, OAuth)
-                // go through createPopup which creates a proper popup WebView.
+                // Creates the popup WebView for target=_blank / window.open
+                // (share menu, OAuth, external links). The old window.open
+                // JS hook is GONE (it broke the user-gesture context — see
+                // PAGE_OVERRIDES_JS §5), so ALL popup routing happens in
+                // the popup's own shouldOverrideUrlLoading: internal pages
+                // load inside the popup, external hosts are routed to the
+                // browser and the popup is removed. Since v6.28 the popup
+                // is attached to the layout only when it is actually going
+                // to render something in-app (deferred attachment — the
+                // external-link fullscreen flash fix; see createPopup).
                 return createPopup(resultMsg);
             }
         });
@@ -1564,9 +1749,10 @@ public class MainActivity extends Activity {
      *    single file), instead of blindly returning true.
      *  - The blob keeper is CAPPED (16 entries / 128MB, oldest evicted) so
      *    blob-heavy pages cannot be memory-bombed by our lifetime extension.
-     *  - dbg() toasts (debug builds only) report when the page exercises
-     *    share / window.open / blob-download — the telemetry that tells us
-     *    which mechanism a misbehaving feature actually uses.
+     *  - dbg() telemetry (experimental builds only, LOGCAT-only — never
+     *    on screen, see P8) reports when the page exercises share /
+     *    window.open / blob-download — the data that tells us which
+     *    mechanism a misbehaving feature actually uses.
      */
     /**
      * Page overrides, installed at DOCUMENT START in EVERY frame (see
@@ -1580,8 +1766,8 @@ public class MainActivity extends Activity {
      * Round-7 notes:
      *  - No JS-side origin gate (ChatGPT share/export UI runs in blob: and
      *    cross-origin iframes); the Java side gates every bridge method.
-     *  - Beacon: toasts "overrides active (main frame)" once per page load,
-     *    so it is instantly visible whether this script is running at all.
+     *  - Beacon: logs "overrides active (main frame)" once per page load
+     *    (logcat), so it is instantly visible whether this script runs.
      */
     private static final String PAGE_OVERRIDES_JS = "(function(){" +
             "  function dbg(m){ try { var b = window.AndroidBridge; if (b && b.debugLog) b.debugLog(String(m)); } catch(e) {} }" +
@@ -2972,7 +3158,10 @@ public class MainActivity extends Activity {
         // OAuth popup: third-party cookies stay ENABLED here — the
         // accounts.google.com / auth.openai.com redirect chain needs them.
         CookieManager.getInstance().setAcceptThirdPartyCookies(popup, true);
-        popup.addJavascriptInterface(new WebAppInterface(this, popup), "AndroidBridge");
+        // v6.28 build 12: keep a handle to the popup's bridge so its trust
+        // can be revoked (see maybeRevokePopupTrust / WebAppInterface).
+        final WebAppInterface popupBridge = new WebAppInterface(this, popup);
+        popup.addJavascriptInterface(popupBridge, "AndroidBridge");
         // Same document-start overrides as the main WebView — popup frames
         // (OAuth, share menus) need the blob/share hooks too.
         try {
@@ -2990,6 +3179,7 @@ public class MainActivity extends Activity {
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 boolean result = shouldOverrideNavigationFrame(url);
                 if (result) maybeRemovePopupForExternalLink(url);
+                else attachPopupOnce(popup);  // deferred popup goes live
                 return result;
             }
 
@@ -3006,7 +3196,30 @@ public class MainActivity extends Activity {
                     result = shouldOverrideNavigation(url);
                 }
                 if (result && isMainFrame) maybeRemovePopupForExternalLink(url);
+                else if (!result) attachPopupOnce(popup);
                 return result;
+            }
+
+            @Override
+            public void onPageStarted(WebView v, String url, Bitmap favicon) {
+                super.onPageStarted(v, url, favicon);
+                // v6.28 build 12 (F-Droid review): observe where the popup's
+                // TOP-LEVEL frame actually goes. onPageStarted is main-frame
+                // only and ALSO fires for redirect hops (which bypass
+                // shouldOverrideUrlLoading entirely) — so this is the one
+                // reliable point to catch the popup landing on a foreign
+                // http(s) origin and permanently revoke its bridge trust.
+                // Blank-shell URLs (blob:/about:blank, null) never revoke —
+                // that is the site's own share/export UI window.
+                maybeRevokePopupTrust(popupBridge, url);
+                // Deferred-attachment safety net: blob:/about:blank popups
+                // (the share menu's window) never fire
+                // shouldOverrideUrlLoading, so this is their only attach
+                // trigger. External http(s) targets never reach here —
+                // their navigation was overridden (true) above and routed
+                // to the browser instead, so this cannot resurrect the
+                // flash.
+                attachPopupOnce(popup);
             }
 
             /** If shouldOverrideUrlLoading routed a MAIN-FRAME url to the
@@ -3014,7 +3227,10 @@ public class MainActivity extends Activity {
              *  popup WebView has nothing useful to render — it would just
              *  sit there as a black screen on top of the chat until the
              *  user back-presses. Remove it now so the user returns from
-             *  the browser straight back to their chat. */
+             *  the browser straight back to their chat. Since the v6.28
+             *  deferred-attachment change the popup is typically still
+             *  INVISIBLE here (it was never attached), so this removal is
+             *  flash-free. */
             private void maybeRemovePopupForExternalLink(String url) {
                 if (url == null) return;
                 try {
@@ -3071,17 +3287,81 @@ public class MainActivity extends Activity {
             public boolean onShowFileChooser(WebView w,
                                              ValueCallback<Uri[]> callback,
                                              FileChooserParams fileChooserParams) {
-                return openFileChooser(callback);
+                // v6.28 build 12: pass the invoking WebView through — a
+                // popup's chooser must never consume the pending shared
+                // file (see openFileChooser).
+                return openFileChooser(w, callback);
             }
         });
 
-        rootLayout.addView(popup);
+        // v6.28 DEFERRED ATTACHMENT (external-link flash fix): do NOT add
+        // the popup to the layout here. The popup WebView is fullscreen
+        // and painted with the theme background (applyWebViewBackground),
+        // so attaching it at onCreateWindow time — before its target URL
+        // is even known — flashed a fullscreen black/white frame between
+        // the tap and the browser opening for every external link (the
+        // URL is only routed to the browser later, in the popup's
+        // shouldOverrideUrlLoading). A WebView works fine detached: it
+        // loads and runs JS while not part of the view hierarchy. The
+        // popup is attached the first time we know it will really render
+        // something in-app (attachPopupOnce: first non-overridden
+        // navigation, or onPageStarted for blob:/about:blank popups that
+        // never hit shouldOverrideUrlLoading). External links are
+        // removed while still invisible — zero flash.
         popupViews.add(popup);
 
         WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
         transport.setWebView(popup);
         resultMsg.sendToTarget();
         return true;
+    }
+
+    /**
+     * v6.28 build 12 (F-Droid review, "pending shared file / caller origin"):
+     * Revoke a popup's bridge trust when its top-level frame is observed on
+     * a NON-allowlisted http(s) origin. Called from the popup's
+     * onPageStarted — that callback is main-frame-only and fires for every
+     * navigation INCLUDING redirect hops, which never reach
+     * shouldOverrideUrlLoading (that gap is exactly how a foreign origin
+     * could previously sit in a popup while the old gate kept serving it
+     * by inheriting the main WebView's allowlisted URL).
+     *
+     * Blank-shell URLs (null / about:blank / blob: / data:) never revoke:
+     * that is the share/export UI's own window, trusted by provenance.
+     * The revocation is STICKY — see WebAppInterface.trustRevoked.
+     */
+    private static void maybeRevokePopupTrust(WebAppInterface bridge, String url) {
+        if (bridge == null || url == null || url.isEmpty()) return;
+        try {
+            Uri uri = Uri.parse(url);
+            String scheme = uri.getScheme();
+            if (scheme == null) return;
+            String s = scheme.toLowerCase(Locale.ROOT);
+            if (!"http".equals(s) && !"https".equals(s)) return;
+            String host = uri.getHost();
+            if (host != null && !isAllowedHost(host)) {
+                Log.w(TAG, "popup reached non-allowlisted origin; bridge trust revoked: " + url);
+                bridge.revokeTrust();
+            }
+        } catch (Throwable t) {
+            /* never let trust bookkeeping crash a navigation */
+        }
+    }
+
+    /**
+     * Attach a deferred popup (see createPopup) the first time we know it
+     * will render in-app content. Idempotent — parent != null means it is
+     * already attached; a popup that has been torn down (no longer in
+     * popupViews) is never re-attached by a stale callback.
+     */
+    private void attachPopupOnce(WebView popup) {
+        if (popup.getParent() != null) return;
+        if (!popupViews.contains(popup)) return;
+        try {
+            rootLayout.addView(popup);
+        } catch (Throwable t) {
+            Log.e(TAG, "attachPopupOnce failed", t);
+        }
     }
 
     private void removePopup(WebView popup) {
@@ -3314,26 +3594,48 @@ public class MainActivity extends Activity {
         return false;
     }
 
-    /** Shared file-chooser implementation (previously duplicated in both clients). */
-    private boolean openFileChooser(ValueCallback<Uri[]> callback) {
+    /**
+     * Shared file-chooser implementation (previously duplicated in both clients).
+     *
+     * v6.28 build 12 (F-Droid review, "Pending shared file can be consumed
+     * by the wrong WebView file chooser"): the pending shared file is now
+     * bound to the ORIGINAL ATTACH TRANSACTION, not to whichever WebView
+     * happens to open a file chooser next:
+     *   - only the MAIN WebView's chooser may auto-receive the file (a
+     *     popup/OAuth chooser gets the normal system picker and the pending
+     *     file stays untouched);
+     *   - the handover only happens inside the SHARE_ATTACH_WINDOW_MS
+     *     window after the share arrived (see pendingShareReceivedAt);
+     *   - an expired pending share is dropped when the main chooser next
+     *     fires, so it can never silently attach much later.
+     */
+    private boolean openFileChooser(WebView w, ValueCallback<Uri[]> callback) {
         if (filePathCallback != null) {
             filePathCallback.onReceiveValue(null);
         }
         filePathCallback = callback;
+        boolean fromMain = (w == webview);
 
-        // If we have a pending shared file, return it immediately — UNLESS
-        // we injected a file moments ago: the site re-opens its file input
-        // right after a programmatic attach, and handing the same file over
-        // again double-attaches it (which trips ChatGPT's attach limit and
-        // makes the attachment disappear).
-        if (pendingShareFileUri != null
+        // If we have a pending shared file, return it immediately — but ONLY
+        // to the main WebView (the composer's attach flow) and ONLY inside
+        // the share transaction window.
+        if (fromMain && pendingShareFileUri != null
+                && SystemClock.elapsedRealtime() - pendingShareReceivedAt
+                        > SHARE_ATTACH_WINDOW_MS) {
+            // Stale share: the transaction is over. Drop the file so it can
+            // never hijack this or a later picker; fall through to the
+            // normal system chooser so the user can still pick manually.
+            Log.i(TAG, "pending shared file expired (attach window closed)");
+            pendingShareFileUri = null;
+        }
+        if (fromMain && pendingShareFileUri != null
                 && SystemClock.elapsedRealtime() - lastFileInjectionAt < 4000) {
             Log.i(TAG, "ignoring site re-trigger after injection");
             filePathCallback.onReceiveValue(null);
             filePathCallback = null;
             return true;
         }
-        if (pendingShareFileUri != null) {
+        if (fromMain && pendingShareFileUri != null) {
             Log.i(TAG, "onShowFileChooser: returning pending shared file " + pendingShareFileUri);
             filePathCallback.onReceiveValue(new Uri[]{pendingShareFileUri});
             filePathCallback = null;
@@ -3350,6 +3652,10 @@ public class MainActivity extends Activity {
             webview.postDelayed(this::settleComposerAfterAutoAttach, 1400);
             return true;
         }
+        // A POPUP's file chooser (OAuth/foreign page inside a popup, or the
+        // site's popup-embedded inputs) intentionally lands here WITHOUT
+        // touching the pending share: the file was shared to the WebGPT
+        // composer, and only the main WebView's attach flow may consume it.
 
         // Because the app declares CAMERA in the manifest, Android requires
         // the runtime permission to be HELD before a capture intent is

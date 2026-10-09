@@ -64,6 +64,7 @@ to leave alone.
 - **Blob URL downloads** — blob URLs are captured while still alive (the site revokes them immediately after triggering a download, which is why naive WebView downloads fail) and saved with the correct extension — works for generated files, PDF/Word/Markdown exports, etc.
 - **File upload** — multi-select file picker + camera capture (full resolution via FileProvider); camera permission is requested on demand
 - **Image context menu** — long-press any image → Material 3 AlertDialog (matching the WebView Manager style) with "Share image" and "Download image" buttons
+- **External links open flash-free** — links to other sites go to your default browser; the popup WebView stays invisible unless the link actually opens in-app, so there is no black/white flash between the tap and the browser
 
 ### Sharing
 - **Share to WebGPT** — receive shared text/files from any app (`ACTION_SEND` intent-filter, labeled "Send to WebGPT"). Text is copied to the clipboard; files are attached to the composer automatically

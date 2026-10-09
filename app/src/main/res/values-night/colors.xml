@@ -49,7 +49,15 @@
     <!-- Status / navigation bar: pure black in dark mode. -->
     <color name="status_bar_bg">#000000</color>
 
-    <!-- No loading_progress_indicator override here: the bar keeps the
-         SAME #2F628C blue in dark mode (defined once in values/colors.xml
-         — see the comment there for why it must stay a literal). -->
+    <!-- Page-progress bar (loading screen) — DARK-MODE color swap (user
+         request, v6.28 exp build): the two literals pinned in
+         values/colors.xml are swapped at night ONLY — the active
+         indicator (and stop dot) becomes the pale blue #CEE5FF, and
+         the full-width track the navy #2F628C. Light mode is unchanged.
+         Same rule as values/colors.xml: keep these as LITERALS, never
+         @color/md_* refs — a resource reference re-resolves against
+         the CURRENT configuration, which is exactly the behavior the
+         light-mode pins exist to avoid. -->
+    <color name="loading_progress_indicator">#CEE5FF</color>
+    <color name="loading_progress_track">#2F628C</color>
 </resources>

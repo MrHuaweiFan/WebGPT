@@ -330,6 +330,20 @@ part is site-specific only through the selectors and the settle heuristic.
   the main WebView and destroy the popup.
 - Non-allowed hosts in a popup go to the system browser and the popup is
   removed (no black screen left on top of the chat).
+- **Popup ATTACHMENT is deferred (v6.28)** — `createPopup()` returns the
+  popup WebView via the transport WITHOUT adding it to the layout. A
+  WebView loads and runs JS perfectly well detached; it is attached by
+  `attachPopupOnce()` only when we know it will really render in-app
+  content: the first non-overridden navigation in its
+  `shouldOverrideUrlLoading`, or `onPageStarted` for `blob:`/`about:blank`
+  popups (the share menu) that never fire `shouldOverrideUrlLoading`.
+  External links are removed while still invisible. Why: attaching the
+  fullscreen, theme-background-colored popup at `onCreateWindow` time —
+  before its URL is known — flashed a fullscreen black/white frame
+  between the tap and the browser opening on every external link (the
+  flash follows the app theme because the popup background is
+  `applyWebViewBackground()`'s theme color). `attachPopupOnce` is
+  idempotent and refuses to re-attach a torn-down popup.
 - **Popup teardown is always DEFERRED** (`removePopup()` detaches the view
   immediately but posts `destroy()` to the next message-loop pass).
   `WebView.destroy()` called synchronously from inside a WebView callback
@@ -473,11 +487,18 @@ WEBSITE_SPECIFICS.md lists):
   needed. The bar sits INSIDE the overlay so it appears/fades exactly with
   the logo and never pulses on its own. Requires material 1.12.0+
   (rounded ends + gap + stop indicator are 1.12 style defaults; 1.11 drew
-  square ends). ⚠ ONE per-app token: `loading_progress_indicator` color —
-  in WebGPT a single literal `#2F628C` for BOTH modes (the light-mode
-  "Apply & restart" blue; deliberately NOT `@color/md_primary`, which
-  would re-resolve to the dark scheme's pastel at night); forks pick
-  their own color and record the day/night decision here.
+  square ends). ⚠ TWO per-app tokens: `loading_progress_indicator`
+  (#2F628C — the active indicator AND the stop dot; material 1.12 paints
+  both from the indicator color; the light-mode "Apply & restart" blue)
+  and `loading_progress_track` (#CEE5FF — the full-width track, the
+  LIGHT scheme's secondaryContainer). BOTH must be single literals
+  valid for BOTH modes: material 1.12's DEFAULT track color is the
+  `colorSecondaryContainer` THEME token (pale blue by day, #0D4A73 navy
+  by night — the source of the "still wrong in dark mode" report that
+  came in AFTER the indicator was already pinned; pinning one of the
+  two painted colors is not enough), and an `@color/md_*` reference
+  would re-resolve to the dark scheme at night. Forks pick their own
+  pair and record the day/night decision here.
 - **Launch splash (v6.27)** — `Theme.AppSplash` + `splash_icon_none` +
   the exit-fade listener in `MainActivity.onCreate`. On Android 12+ the
   splash is a plain frame of the loading-screen background color with a
@@ -492,6 +513,28 @@ WEBSITE_SPECIFICS.md lists):
   It must be day/night-qualified like the loading overlay's
   `?android:attr/colorBackground`, or dark mode flashes the light color at
   launch. Never hardcode a hex value in the splash theme.
+- **Popup framework** — `onCreateWindow` → `createPopup()` (fullscreen
+  popup WebView with its own `WebViewClient`/`WebChromeClient`,
+  third-party cookies ON, same AndroidBridge + document-start overrides),
+  **deferred attachment** via `attachPopupOnce()` (v6.28 — the popup joins
+  the layout only when it will really render in-app content: first
+  non-overridden navigation or `onPageStarted`; external links are
+  removed while still invisible, killing the fullscreen theme-colored
+  flash between tap and browser — see 2.6 for the full rationale),
+  deferred teardown via `removePopup()` (P14), OAuth
+  landed-back-on-site close, and external-host routing to the browser.
+- **Diagnostic toasts (pattern, not shipped code)** — v6.28's
+  external-link-flash hunt shipped `diagToast()`: `BuildConfig.EXPERIMENTAL`
+  -gated toasts for ONE-SHOT, user-triggered events only (popup
+  lifecycle, external-link routing). Removed from the tree once the
+  fix was confirmed on device — but keep the PATTERN for future
+  on-device hunts: a few one-shot toasts disambiguate which code path
+  ran (e.g. "browser:" vs "popup:") with no adb needed. The v6.24.31
+  lesson stands: toasting on the navigation hot path (per
+  `shouldOverrideUrlLoading` / `debugLog` call) is a synchronous binder
+  round-trip each and visibly regressed page loads — the bridge's
+  `debugLog` stays logcat-only, and any re-added `diagToast` must never
+  grow per-navigation or per-frame call sites.
 - **Build config** — EXPERIMENTAL flag pattern (debug key +
   `debuggable=false` so ART AOT-compiles experimental builds; release has
   `EXPERIMENTAL=false`), `dependenciesInfo` disabled for F-Droid's scanner.
@@ -689,7 +732,9 @@ behavior actually differs:
 - **Desktop mode toggle** — UA switching wiped the session cookie on every
   cold start (logged users out); feature deleted in v6.25.
 - **Diagnostic on-screen toasts** (`debugToast`/`diagToast`) — see P8;
-  replaced by logcat-only `debugLog`.
+  replaced by logcat-only `debugLog` (diagToast was revived once, for
+  the v6.28 external-link flash hunt, and removed again after the fix
+  was confirmed on device).
 - **`last_url` reopen** — storing "last page" and reopening it; superseded
   by proper `saveState`/`restoreState`.
 - **JS-side origin gates + scheme allowlists + `window.open` hooks** — P5,

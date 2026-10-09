@@ -1,0 +1,9 @@
+What's new
+
+- AndroidBridge: all methods origin-gated, incl. onBlobChunk, onBlobFailed, onFileDropResult.
+- Blob transfers: size cap, chunk validation, ordering, max 4 concurrent, 60s idle sweep.
+- Popups: bridge trust follows popup origin; revoked on non-allowlisted redirect.
+- Shared files: only main chat picker can auto-attach, within 60s; popups can't consume.
+- New optional progress bar. 
+- External links open in the browser without the fullscreen flash. 
+- UI fixes.
