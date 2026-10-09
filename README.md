@@ -83,7 +83,11 @@ to leave alone.
 
 ### Known limitations
 - **Microphone dictation** — voice input may refuse to start despite permissions. Selecting the alternative WebView could resolve the problem
-- **Google sign-in** — Google blocks OAuth in Android WebViews ("browser or app may not be secure"). Email sign-in works without issues
+- **Google sign-in** — Google can sometimes block OAuth on some WebViews ("browser or app may not be secure").
+Regardless of which WebView you’re using, follow these steps to log in with Google successfully:
+Log in with Google as usual.
+You’ll get an error at the end.
+Go back to the ChatGPT home page and click “Continue with Google” again. Your account should then load. 
 
 ## Tech stack
 
