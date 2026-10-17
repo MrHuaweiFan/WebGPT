@@ -1072,8 +1072,13 @@ public class MainActivity extends Activity {
          */
         @JavascriptInterface
         public void pageReady() {
-            if (!hostAllowed()) return;  // origin gate
-            activity.runOnUiThread(() -> activity.onDomReady());
+            // hostAllowed() reads WebView URL state (UI-thread-affine), so the
+            // origin gate must run on the Activity UI thread, not the JS bridge
+            // thread. Rejecting here on the bridge thread is undefined behavior.
+            activity.runOnUiThread(() -> {
+                if (!hostAllowed()) return;  // origin gate
+                activity.onDomReady();
+            });
         }
 
         /**
