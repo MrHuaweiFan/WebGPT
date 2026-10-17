@@ -401,7 +401,7 @@ offline dialog text ("Couldn't load chatgpt.com…"), welcome-dialog and
 WebView-info texts (they mention ChatGPT features and Thorium),
 `UpdateChecker.REPO_API` (`api.github.com/repos/MrHuaweiFan/WebGPT/releases`),
 README (including the not-affiliated-with-OpenAI disclaimer), icons, package
-name `com.webgpt.app`. All of these change per app — see 4.1.
+name `org.webgpt.app`. All of these change per app — see 4.1.
 
 ### 2.10 ChatGPT behavior quirks reference
 
@@ -428,7 +428,7 @@ features from a newer WebGPT, changes confined to these areas can be copied
 verbatim (modulo the derivative's own app-level customizations, which its
 WEBSITE_SPECIFICS.md lists):
 
-- **WebView switcher** — the whole `com.webgpt.app.webview` package:
+- **WebView switcher** — the whole `org.webgpt.app.webview` package:
   `App`, `Hooker`, `IServiceManagerProxy`, `IWebViewUpdateServiceProxy`,
   `IPackageManagerProxy`, `DeveloperModeContentProvider`, `CrashTracker`,
   `WebViewManagerDialog`, `WebViewInstalledAdapter`, `WebViewDownloaderAdapter`,
@@ -544,7 +544,7 @@ WEBSITE_SPECIFICS.md lists):
 ### 4.1 Rebranding checklist (mechanical)
 
 1. `applicationId` / `namespace` in `app/build.gradle` and the Java package
-   tree (`com.webgpt.app` → `com.<newapp>.app`).
+   tree (`org.webgpt.app` → `org.<newapp>.app`).
 2. `versionCode`/`versionName` reset to the derivative's own scheme — do
    **not** inherit the base's version numbers; keep your own monotonic
    sequence so updates install correctly.

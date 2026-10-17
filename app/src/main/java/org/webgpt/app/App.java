@@ -1,4 +1,4 @@
-package com.webgpt.app;
+package org.webgpt.app;
 
 import android.app.Application;
 import android.content.Context;
@@ -6,9 +6,9 @@ import android.content.SharedPreferences;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.webgpt.app.webview.CrashTracker;
-import com.webgpt.app.webview.Hooker;
-import com.webgpt.app.webview.WebViewUtil;
+import org.webgpt.app.webview.CrashTracker;
+import org.webgpt.app.webview.Hooker;
+import org.webgpt.app.webview.WebViewUtil;
 
 /**
  * Application subclass.

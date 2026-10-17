@@ -423,7 +423,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="com.webgpt.app"
+                        android:text="org.webgpt.app"
                         android:textColor="?attr/colorOnSurface"
                         android:textSize="13sp"
                         android:fontFamily="monospace" />

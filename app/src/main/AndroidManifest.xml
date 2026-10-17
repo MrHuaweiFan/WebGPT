@@ -74,7 +74,7 @@
           ActivityThread.installContentProviders).
         -->
         <provider
-            android:name="com.webgpt.app.webview.DeveloperModeContentProvider"
+            android:name="org.webgpt.app.webview.DeveloperModeContentProvider"
             android:authorities="${applicationId}.DeveloperModeContentProvider"
             android:exported="false"
             android:enabled="true" />

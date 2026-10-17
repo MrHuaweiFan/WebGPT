@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;

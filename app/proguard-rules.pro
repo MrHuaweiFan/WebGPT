@@ -1,8 +1,8 @@
 # ─── App classes — keep everything in our package ──────────────────────
 # The app uses reflection extensively (Hooker, proxies), so we keep all
-# classes in com.webgpt.app.** intact. R8 will still shrink the dependency
+# classes in org.webgpt.app.** intact. R8 will still shrink the dependency
 # libraries (Material, androidx, etc.).
--keep class com.webgpt.app.** { *; }
+-keep class org.webgpt.app.** { *; }
 
 # ─── @JavascriptInterface methods ─────────────────────────────────────
 # WebView calls these by name from JavaScript. They must not be renamed.
@@ -11,14 +11,14 @@
 }
 
 # ─── ContentProvider (declared in manifest) ─────────────────────────────────
--keep class com.webgpt.app.webview.DeveloperModeContentProvider { *; }
+-keep class org.webgpt.app.webview.DeveloperModeContentProvider { *; }
 
 # ─── Reflection targets in Hooker.java ────────────────────────────────
 # These classes are loaded by name via Class.forName().
--keep class com.webgpt.app.webview.IServiceManagerProxy { *; }
--keep class com.webgpt.app.webview.IWebViewUpdateServiceProxy { *; }
--keep class com.webgpt.app.webview.IPackageManagerProxy { *; }
--keep class com.webgpt.app.webview.Hooker { *; }
+-keep class org.webgpt.app.webview.IServiceManagerProxy { *; }
+-keep class org.webgpt.app.webview.IWebViewUpdateServiceProxy { *; }
+-keep class org.webgpt.app.webview.IPackageManagerProxy { *; }
+-keep class org.webgpt.app.webview.Hooker { *; }
 
 # ─── Material Components ──────────────────────────────────────────────
 # Material3 themes reference many attributes by reflection. Keep the

@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 import android.content.pm.PackageInfo;
@@ -6,7 +6,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.os.IBinder;
 
-import com.webgpt.app.BuildConfig;
+import org.webgpt.app.BuildConfig;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

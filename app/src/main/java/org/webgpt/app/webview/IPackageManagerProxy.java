@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 
@@ -44,7 +44,7 @@ public final class IPackageManagerProxy implements InvocationHandler {
             String comp = String.valueOf(args[0]);
             if (comp.contains("devui.DeveloperModeState")) {
                 boolean optimize = context.getSharedPreferences(
-                        com.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE)
+                        org.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE)
                         .getBoolean("webview_optimize", false);
                 if (optimize) {
                     return 1;  // COMPONENT_ENABLED_STATE_ENABLED
