@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -8,7 +8,7 @@ import android.util.Log;
  * Crash recovery safety net.
  *
  * Bumps a crash counter in SharedPreferences on every cold start. The
- * {@link com.webgpt.app.MainActivity} resets it once the WebView finishes
+ * {@link org.webgpt.app.MainActivity} resets it once the WebView finishes
  * its first page load, when the activity is paused (background process
  * kills are normal lifecycle, not crashes), and on a clean destroy. If the
  * counter exceeds {@link #MAX_CRASHES}, MainActivity bails to the WebView
@@ -30,7 +30,7 @@ public final class CrashTracker {
     private CrashTracker() {}
 
     public static void init(Context context) {
-        prefs = context.getSharedPreferences(com.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE);
+        prefs = context.getSharedPreferences(org.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE);
         increase();
         Log.i(TAG, "Crash count = " + getCount());
     }

@@ -1,4 +1,4 @@
-package com.webgpt.app;
+package org.webgpt.app;
 
 import android.app.Activity;
 import android.content.DialogInterface;
@@ -14,8 +14,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.webgpt.app.webview.UpdateChecker;
-import com.webgpt.app.webview.WebViewManagerDialog;
+import org.webgpt.app.webview.UpdateChecker;
+import org.webgpt.app.webview.WebViewManagerDialog;
 import com.google.android.material.materialswitch.MaterialSwitch;
 
 import java.io.File;

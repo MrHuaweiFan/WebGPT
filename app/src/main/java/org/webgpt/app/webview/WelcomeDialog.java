@@ -1,12 +1,12 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 
-import com.webgpt.app.App;
-import com.webgpt.app.R;
+import org.webgpt.app.App;
+import org.webgpt.app.R;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**

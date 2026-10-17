@@ -8,14 +8,14 @@ Better xCloud.
 
 ### New Java source files (16)
 
-**`com.webgpt.app` package:**
+**`org.webgpt.app` package:**
 - `App.java` — `Application` subclass. Installs the three runtime hooks in
   `onCreate()` BEFORE any Activity constructs a WebView. This is critical:
   Android's `WebViewFactory` loads the WebView implementation lazily on the
   first `new WebView(ctx)` call, and once loaded it can't be swapped without
   killing the process.
 
-**`com.webgpt.app.webview` package:**
+**`org.webgpt.app.webview` package:**
 - `WebViewUtil.java` — provider registry. Captures the system default WebView
   via `WebView.getCurrentWebViewPackage()`, scans a hardcoded list of 13
   package names (`ALLOWED_PROVIDERS`) for installed alternatives, reads the
@@ -123,7 +123,7 @@ footprint minimal.
 ```
 app/src/main/
 ├── AndroidManifest.xml                          ← modified (queries, App, provider)
-├── java/com/webgpt/app/
+├── java/org/webgpt/app/
 │   ├── App.java                                 ← NEW (Application subclass)
 │   ├── MainActivity.java                        ← modified (pre-launch checks)
 │   ├── SettingsActivity.java                    ← modified (WebView Manager button)

@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -13,8 +13,8 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.webgpt.app.App;
-import com.webgpt.app.R;
+import org.webgpt.app.App;
+import org.webgpt.app.R;
 
 import java.util.ArrayList;
 import java.util.List;

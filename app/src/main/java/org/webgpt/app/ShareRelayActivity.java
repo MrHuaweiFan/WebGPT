@@ -1,4 +1,4 @@
-package com.webgpt.app;
+package org.webgpt.app;
 
 import android.app.Activity;
 import android.content.ClipData;

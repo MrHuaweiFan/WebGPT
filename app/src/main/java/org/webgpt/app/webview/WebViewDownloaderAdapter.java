@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,7 +8,7 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.webgpt.app.R;
+import org.webgpt.app.R;
 import com.google.android.material.button.MaterialButton;
 
 /**

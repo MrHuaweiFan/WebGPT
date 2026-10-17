@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -99,7 +99,7 @@ public final class WebViewUtil {
         reloadProviderList(context);
 
         SharedPreferences prefs = context.getSharedPreferences(
-                com.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE);
+                org.webgpt.app.App.PREFS_NAME, Context.MODE_PRIVATE);
         String selected = prefs.getString(PREF_WEBVIEW_IMPL, DEFAULT_PROVIDER.packageName);
         if ("default".equals(selected)) {
             selected = DEFAULT_PROVIDER.packageName;

@@ -1,6 +1,6 @@
-package com.webgpt.app;
+package org.webgpt.app;
 
-import com.webgpt.app.BuildConfig;
+import org.webgpt.app.BuildConfig;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -55,10 +55,10 @@ import androidx.core.splashscreen.SplashScreen;
 import androidx.core.splashscreen.SplashScreenViewProvider;
 import androidx.webkit.WebViewCompat;
 
-import com.webgpt.app.webview.CrashTracker;
-import com.webgpt.app.webview.WebViewManagerDialog;
-import com.webgpt.app.webview.WebViewUtil;
-import com.webgpt.app.webview.WelcomeDialog;
+import org.webgpt.app.webview.CrashTracker;
+import org.webgpt.app.webview.WebViewManagerDialog;
+import org.webgpt.app.webview.WebViewUtil;
+import org.webgpt.app.webview.WelcomeDialog;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
 import java.io.File;

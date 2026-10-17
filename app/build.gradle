@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace 'com.webgpt.app'
+    namespace 'org.webgpt.app'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.webgpt.app"
+        applicationId "org.webgpt.app"
         minSdk 21
         targetSdk 34
         versionCode 109

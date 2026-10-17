@@ -1,4 +1,4 @@
-package com.webgpt.app.webview;
+package org.webgpt.app.webview;
 
 /**
  * Identifier for a downloadable WebView source. Used as the key in the
