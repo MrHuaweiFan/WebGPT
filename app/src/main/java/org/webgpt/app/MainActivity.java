@@ -1361,6 +1361,16 @@ public class MainActivity extends Activity {
     }
 
     private void openUrlInBrowser(String url) {
+        // TEMPORARY DIAGNOSTIC (branch diag/external-link-toast): show WHICH
+        // host (host only, never the full URL) is routed to the browser, to
+        // find the late Google sign-in hop. Remove once the host is known.
+        try {
+            final Uri du = Uri.parse(url);
+            final String what = du.getHost() != null ? du.getHost()
+                    : (du.getScheme() != null ? du.getScheme() + ":" : "?");
+            runOnUiThread(() -> Toast.makeText(this,
+                    "Opened externally: " + what, Toast.LENGTH_LONG).show());
+        } catch (Throwable ignored) { /* diagnostic only */ }
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
