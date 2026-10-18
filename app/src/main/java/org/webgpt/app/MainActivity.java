@@ -3188,6 +3188,7 @@ public class MainActivity extends Activity {
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                if (isLoginChainUrl(url)) loginChain[0] = true;
                 boolean result = shouldOverrideNavigationFrame(url);
                 if (result) maybeRemovePopupForExternalLink(url);
                 else attachPopupOnce(popup);  // deferred popup goes live
@@ -3201,19 +3202,7 @@ public class MainActivity extends Activity {
                 boolean result;
                 boolean isMainFrame = (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
                         || request.isForMainFrame();
-                // v6.29: an AUTOMATIC navigation (redirect hop, scripted
-                // load, iframe) of an active sign-in popup must not pull
-                // the user out to the browser mid-login. Only a
-                // user-gesture link click keeps the normal policy below.
-                if (loginChain[0] && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-                        && (request.isRedirect() || !request.hasGesture())) {
-                    int decision = loginAutoNavDecision(url, isMainFrame);
-                    if (decision == LOGIN_NAV_STAY) {
-                        attachPopupOnce(popup);
-                        return false;
-                    }
-                    if (decision == LOGIN_NAV_SWALLOW) return true;
-                }
+                if (isMainFrame && isLoginChainUrl(url)) loginChain[0] = true;
                 if (!isMainFrame) {
                     result = shouldOverrideNavigationFrame(url);
                 } else {
@@ -3396,19 +3385,17 @@ public class MainActivity extends Activity {
     // ---- v6.29: keep the Google / OpenAI sign-in chain inside the app ----
 
     /**
-     * https hosts a sign-in popup may reach through an AUTOMATIC redirect hop
-     * although they are NOT in isAllowedHost(). Deliberately kept out of the
-     * global allowlist: the main WebView and hostAllowed() are unaffected,
-     * and the popup's onPageStarted still revokes its bridge trust here.
-     * accounts.youtube.com is Google's cross-domain session-sync hop. It is
-     * the SUSPECTED late hop, not a confirmed one: check it against the
-     * diag/external-link-toast build and adjust this list.
+     * https hosts that may LOAD in-app (main frame, iframe or popup) although
+     * they are NOT in isAllowedHost(): hops of Google's sign-in chain.
+     * Navigation policy ONLY: isAllowedHost() stays untouched, so the bridge
+     * gate, the permission-origin check and the trust revocation in
+     * maybeRevokePopupTrust() treat these hosts as foreign, as before.
+     * accounts.youtube.com is Google's session-sync hop (SetSID). CONFIRMED on
+     * device with the diag/external-link-toast build: it was the host routed
+     * to the browser right after the 2-step verification, which then opened
+     * Google's consent page there (HTTP 400) and left the popup stuck.
      */
-    private static final String[] LOGIN_REDIRECT_HOSTS = { "accounts.youtube.com" };
-
-    private static final int LOGIN_NAV_DEFAULT = 0;  // normal navigation policy
-    private static final int LOGIN_NAV_STAY = 1;     // load inside the popup
-    private static final int LOGIN_NAV_SWALLOW = 2;  // cancel; do NOT open the browser
+    private static final String[] LOGIN_HOP_HOSTS = { "accounts.youtube.com" };
 
     private static boolean hostIs(String host, String domain) {
         return host.equals(domain) || host.endsWith("." + domain);
@@ -3427,31 +3414,14 @@ public class MainActivity extends Activity {
         }
     }
 
-    /**
-     * What an active sign-in popup does with an AUTOMATIC navigation (server
-     * redirect, scripted load, iframe; never a user tap). Only non-allowlisted
-     * web URLs are decided here: a main-frame hop to a LOGIN_REDIRECT_HOSTS
-     * host stays in the popup, a non-allowlisted iframe is dropped instead of
-     * being sent to the browser (it never loaded in-app either way).
-     */
-    private static int loginAutoNavDecision(String url, boolean isMainFrame) {
-        try {
-            Uri uri = Uri.parse(url);
-            String scheme = uri.getScheme();
-            String host = uri.getHost();
-            if (scheme == null || host == null || isAllowedHost(host)) return LOGIN_NAV_DEFAULT;
-            boolean https = "https".equalsIgnoreCase(scheme);
-            if (!https && !"http".equalsIgnoreCase(scheme)) return LOGIN_NAV_DEFAULT;
-            if (!isMainFrame) return LOGIN_NAV_SWALLOW;
-            if (https) {
-                for (String d : LOGIN_REDIRECT_HOSTS) {
-                    if (hostIs(host, d)) return LOGIN_NAV_STAY;
-                }
-            }
-        } catch (Throwable t) {
-            /* fall through to the normal policy */
+    /** True for an https URL on one of LOGIN_HOP_HOSTS (see there). */
+    private static boolean isLoginHopUrl(Uri uri) {
+        String host = uri.getHost();
+        if (host == null || !"https".equalsIgnoreCase(uri.getScheme())) return false;
+        for (String d : LOGIN_HOP_HOSTS) {
+            if (hostIs(host, d)) return true;
         }
-        return LOGIN_NAV_DEFAULT;
+        return false;
     }
 
     /**
@@ -3662,7 +3632,7 @@ public class MainActivity extends Activity {
         boolean isWeb = "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
         if (isWeb) {
             String host = uri.getHost();
-            if (host != null && !isAllowedHost(host)) {
+            if (host != null && !isAllowedHost(host) && !isLoginHopUrl(uri)) {
                 openUrlInBrowser(url);
                 return true;
             }
@@ -3696,7 +3666,7 @@ public class MainActivity extends Activity {
             return false;
         }
         String host = uri.getHost();
-        if (host != null && !isAllowedHost(host)) {
+        if (host != null && !isAllowedHost(host) && !isLoginHopUrl(uri)) {
             openUrlInBrowser(url);
             return true;
         }

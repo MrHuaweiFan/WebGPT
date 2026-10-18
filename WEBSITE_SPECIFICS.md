@@ -329,14 +329,14 @@ part is site-specific only through the selectors and the settle heuristic.
   `*.chatgpt.com` outside `/auth/`, the login is done → load that URL into
   the main WebView and destroy the popup.
 - Non-allowed hosts in a popup go to the system browser and the popup is
-  removed (no black screen left on top of the chat). Exception (v6.29, API
-  24+): AUTOMATIC navigations (`isRedirect()` or no user gesture) of a popup
-  that has been on `accounts.google.com` / `auth.openai.com` never open the
-  browser. A main-frame hop to a `LOGIN_REDIRECT_HOSTS` host
-  (`accounts.youtube.com`, suspected and unconfirmed) stays in the popup; a
-  non-allowed iframe is dropped. If such a sign-in popup still ends without
-  reaching `chatgpt.com` (routed to the browser, `onCloseWindow`, renderer
-  gone), `reloadMainAfterLoginPopup()` reloads the main WebView.
+  removed (no black screen left on top of the chat). Exception (v6.29):
+  `LOGIN_HOP_HOSTS` (`accounts.youtube.com`, Google's SetSID session-sync
+  hop, confirmed on device) load in-app in every frame. This is a
+  navigation-only exception: `isAllowedHost()` is unchanged, so the bridge
+  gate and `maybeRevokePopupTrust()` still treat that host as foreign. If a
+  popup that was on `accounts.google.com` / `auth.openai.com` still ends
+  without reaching `chatgpt.com` (routed to the browser, `onCloseWindow`,
+  renderer gone), `reloadMainAfterLoginPopup()` reloads the main WebView.
 - **Popup ATTACHMENT is deferred (v6.28)** — `createPopup()` returns the
   popup WebView via the transport WITHOUT adding it to the layout. A
   WebView loads and runs JS perfectly well detached; it is attached by
