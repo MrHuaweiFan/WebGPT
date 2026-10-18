@@ -331,8 +331,11 @@ part is site-specific only through the selectors and the settle heuristic.
 - Non-allowed hosts in a popup go to the system browser and the popup is
   removed (no black screen left on top of the chat). Exception (v6.29):
   `LOGIN_HOP_HOSTS` (`accounts.youtube.com`, Google's SetSID session-sync
-  hop, confirmed on device) load in-app in every frame. This is a
-  navigation-only exception: `isAllowedHost()` is unchanged, so the bridge
+  hop, confirmed on device) and `accounts.google.<country domain>` (the
+  next hop; matched exactly against Google's own country-domain list,
+  `GOOGLE_COUNTRY_SUFFIXES`, never by pattern; confirmed on device) load
+  in-app in every frame. This is a navigation-only exception:
+  `isAllowedHost()` is unchanged, so the bridge
   gate and `maybeRevokePopupTrust()` still treat that host as foreign. If a
   popup that was on `accounts.google.com` / `auth.openai.com` still ends
   without reaching `chatgpt.com` (routed to the browser, `onCloseWindow`,
