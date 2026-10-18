@@ -1464,7 +1464,8 @@ public class MainActivity extends Activity {
                         && !request.isForMainFrame()) {
                     return shouldOverrideNavigationFrame(request.getUrl().toString());
                 }
-                return shouldOverrideNavigation(request.getUrl().toString());
+                return shouldOverrideNavigation(request.getUrl().toString(),
+                        isSignInContextUrl(v.getUrl()));
             }
 
             @SuppressWarnings("deprecation")
@@ -3178,10 +3179,17 @@ public class MainActivity extends Activity {
             Log.e(TAG, "popup addDocumentStartJavaScript failed", t);
         }
 
+        // v6.29: set once this popup's top-level frame has been on the
+        // sign-in chain (see isLoginChainUrl). Only such popups get the
+        // main-WebView reload in reloadMainAfterLoginPopup, so the share
+        // menu / external-link popups never reload the chat.
+        final boolean[] loginChain = {false};
+
         popup.setWebViewClient(new WebViewClient() {
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                if (isLoginChainUrl(url)) loginChain[0] = true;
                 boolean result = shouldOverrideNavigationFrame(url);
                 if (result) maybeRemovePopupForExternalLink(url);
                 else attachPopupOnce(popup);  // deferred popup goes live
@@ -3195,10 +3203,14 @@ public class MainActivity extends Activity {
                 boolean result;
                 boolean isMainFrame = (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
                         || request.isForMainFrame();
+                if (isMainFrame && isLoginChainUrl(url)) loginChain[0] = true;
                 if (!isMainFrame) {
                     result = shouldOverrideNavigationFrame(url);
                 } else {
-                    result = shouldOverrideNavigation(url);
+                    // loginChain[0] was set just above if THIS url is a
+                    // sign-in page; otherwise the popup's current page decides.
+                    result = shouldOverrideNavigation(url,
+                            loginChain[0] || isSignInContextUrl(v.getUrl()));
                 }
                 if (result && isMainFrame) maybeRemovePopupForExternalLink(url);
                 else if (!result) attachPopupOnce(popup);
@@ -3217,6 +3229,7 @@ public class MainActivity extends Activity {
                 // Blank-shell URLs (blob:/about:blank, null) never revoke —
                 // that is the site's own share/export UI window.
                 maybeRevokePopupTrust(popupBridge, url);
+                if (isLoginChainUrl(url)) loginChain[0] = true;
                 // Deferred-attachment safety net: blob:/about:blank popups
                 // (the share menu's window) never fire
                 // shouldOverrideUrlLoading, so this is their only attach
@@ -3228,7 +3241,7 @@ public class MainActivity extends Activity {
             }
 
             /** If shouldOverrideUrlLoading routed a MAIN-FRAME url to the
-             *  browser (because the host is not in the allowlist), the
+             *  browser (because the host may not load in-app here), the
              *  popup WebView has nothing useful to render — it would just
              *  sit there as a black screen on top of the chat until the
              *  user back-presses. Remove it now so the user returns from
@@ -3241,8 +3254,14 @@ public class MainActivity extends Activity {
                 try {
                     Uri uri = Uri.parse(url);
                     String host = uri.getHost();
-                    if (host != null && !isAllowedHost(host)) {
+                    // Only called after the policy routed this url out of the
+                    // app, so ANY host qualifies. (An isAllowedHost() check
+                    // here would leave the popup open for Google-family hosts
+                    // that isAllowedHost() accepts but the main-frame policy
+                    // sent to the browser, see isMainFrameHostAllowed.)
+                    if (host != null) {
                         removePopup(popup);
+                        reloadMainAfterLoginPopup(loginChain);
                     }
                 } catch (Exception e) { /* ignore parse failures */ }
             }
@@ -3251,6 +3270,7 @@ public class MainActivity extends Activity {
             public boolean onRenderProcessGone(WebView view,
                                                android.webkit.RenderProcessGoneDetail detail) {
                 removePopup(popup);
+                reloadMainAfterLoginPopup(loginChain);
                 return true;
             }
 
@@ -3262,6 +3282,7 @@ public class MainActivity extends Activity {
                 Uri uri = Uri.parse(url);
                 String host = uri.getHost();
                 if (host != null && (host.equals("chatgpt.com") || host.endsWith(".chatgpt.com")) && !url.contains("/auth/")) {
+                    loginChain[0] = false;  // handled here; no second reload
                     loadUrlWithHeaders(webview, url);
                     removePopup(popup);
                 }
@@ -3273,6 +3294,7 @@ public class MainActivity extends Activity {
             @Override
             public void onCloseWindow(WebView window) {
                 removePopup(popup);
+                reloadMainAfterLoginPopup(loginChain);
             }
 
             @Override
@@ -3366,6 +3388,101 @@ public class MainActivity extends Activity {
             rootLayout.addView(popup);
         } catch (Throwable t) {
             Log.e(TAG, "attachPopupOnce failed", t);
+        }
+    }
+
+    // ---- v6.29: keep the Google / OpenAI sign-in chain inside the app ----
+
+    /**
+     * https hosts that may LOAD in-app (main frame, iframe or popup) although
+     * they are NOT in isAllowedHost(): hops of Google's sign-in chain.
+     * Navigation policy ONLY: isAllowedHost() stays untouched, so the bridge
+     * gate, the permission-origin check and the trust revocation in
+     * maybeRevokePopupTrust() treat these hosts as foreign, as before.
+     * accounts.youtube.com is Google's session-sync hop (SetSID). CONFIRMED on
+     * device with the diag/external-link-toast build: it was the host routed
+     * to the browser right after the 2-step verification, which then opened
+     * Google's consent page there (HTTP 400) and left the popup stuck.
+     */
+    private static final String[] LOGIN_HOP_HOSTS = { "accounts.youtube.com" };
+
+    /**
+     * Second sign-in hop (CONFIRMED on device, v6.29 test round 3): after
+     * accounts.youtube.com Google sets the session cookie on its COUNTRY
+     * domain, accounts.google.<suffix> (the owner saw such a host in the
+     * toast). The suffix depends on the account's country, so the hop is
+     * matched against Google's own list of country domains
+     * (https://www.google.com/supported_domains, fetched 2026-10-18, minus
+     * ".com", which isAllowedHost() already covers), never by pattern: an
+     * exact "accounts.google." + suffix match, nothing else.
+     */
+    private static final java.util.Set<String> GOOGLE_COUNTRY_SUFFIXES =
+            new java.util.HashSet<>(java.util.Arrays.asList((
+            "ad ae al am as at az ba be bf bg bi bj bs bt by ca cat cd cf cg ch" +
+            " ci cl cm cn co.ao co.bw co.ck co.cr co.id co.il co.in co.jp co.ke" +
+            " co.kr co.ls co.ma co.mz co.nz co.th co.tz co.ug co.uk co.uz co.ve" +
+            " co.vi co.za co.zm co.zw com.af com.ag com.ar com.au com.bd com.bh" +
+            " com.bn com.bo com.br com.bz com.co com.cu com.cy com.do com.ec " +
+            "com.eg com.et com.fj com.gh com.gi com.gt com.hk com.jm com.kh " +
+            "com.kw com.lb com.ly com.mm com.mt com.mx com.my com.na com.ng " +
+            "com.ni com.np com.om com.pa com.pe com.pg com.ph com.pk com.pr " +
+            "com.py com.qa com.sa com.sb com.sg com.sl com.sv com.tj com.tr " +
+            "com.tw com.ua com.uy com.vc com.vn cv cz de dj dk dm dz ee es fi " +
+            "fm fr ga ge gg gl gm gr gy hn hr ht hu ie im iq is it je jo kg ki " +
+            "kz la li lk lt lu lv md me mg mk ml mn mu mv mw ne nl no nr nu pl " +
+            "pn ps pt ro rs ru rw sc se sh si sk sm sn so sr st td tg tl tm tn " +
+            "to tt vu ws "
+            ).trim().split("\\s+")));
+
+    private static boolean hostIs(String host, String domain) {
+        return host.equals(domain) || host.endsWith("." + domain);
+    }
+
+    /** True for the pages that mark a popup as a sign-in popup. */
+    private static boolean isLoginChainUrl(String url) {
+        if (url == null) return false;
+        try {
+            Uri uri = Uri.parse(url);
+            String host = uri.getHost();
+            return "https".equalsIgnoreCase(uri.getScheme()) && host != null
+                    && (hostIs(host, "accounts.google.com") || hostIs(host, "auth.openai.com"));
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /**
+     * True for an https URL on one of LOGIN_HOP_HOSTS or on
+     * accounts.google.<Google country domain> (see GOOGLE_COUNTRY_SUFFIXES).
+     */
+    private static boolean isLoginHopUrl(Uri uri) {
+        String host = uri.getHost();
+        if (host == null || !"https".equalsIgnoreCase(uri.getScheme())) return false;
+        for (String d : LOGIN_HOP_HOSTS) {
+            if (hostIs(host, d)) return true;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        String prefix = "accounts.google.";
+        return h.startsWith(prefix)
+                && GOOGLE_COUNTRY_SUFFIXES.contains(h.substring(prefix.length()));
+    }
+
+    /**
+     * Safety net: a sign-in popup that ends WITHOUT its own onPageFinished
+     * (landing on chatgpt.com) leaves the main WebView on the login page,
+     * because that callback is the only other place the main WebView is
+     * refreshed after login. Flush the shared cookie jar and reload it so a
+     * cookie-based login is picked up without restarting the app. Runs at
+     * most once per popup and only for popups that were on the sign-in chain.
+     */
+    private void reloadMainAfterLoginPopup(boolean[] loginChain) {
+        if (loginChain == null || !loginChain[0]) return;
+        loginChain[0] = false;
+        try {
+            CookieManager.getInstance().flush();
+            if (webview != null) loadUrlWithHeaders(webview, URL);
+        } catch (Throwable t) {
+            Log.e(TAG, "reloadMainAfterLoginPopup failed", t);
         }
     }
 
@@ -3546,7 +3663,7 @@ public class MainActivity extends Activity {
      * feature that navigates the main frame to generated content. Only
      * file:/content: stay blocked (the actual local-file hardening win).
      */
-    private boolean shouldOverrideNavigation(String url) {
+    private boolean shouldOverrideNavigation(String url, boolean signInContext) {
         if (url == null) return false;
         Uri uri;
         try {
@@ -3558,7 +3675,7 @@ public class MainActivity extends Activity {
         boolean isWeb = "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme);
         if (isWeb) {
             String host = uri.getHost();
-            if (host != null && !isAllowedHost(host)) {
+            if (host != null && !isMainFrameHostAllowed(uri, signInContext)) {
                 openUrlInBrowser(url);
                 return true;
             }
@@ -3572,6 +3689,44 @@ public class MainActivity extends Activity {
         }
         if (s.equals("file") || s.equals("content")) return true; // blocked
         return false; // blob:, data:, about:, javascript:, schemeless -> load
+    }
+
+    /**
+     * v6.29 MAIN-FRAME host policy: only ChatGPT / OpenAI and Google's
+     * sign-in entry point load in-app from anywhere. The rest of the
+     * allowlist (google.com incl. gemini.google.com and every other Google
+     * subdomain, googleusercontent.com, gstatic.com) loads in-app ONLY while
+     * a sign-in is in progress (signInContext, see isSignInContextUrl): the
+     * login chain hops through such hosts, but a link the user taps in a
+     * chat (google.com, gemini, ...) goes to the browser. The login hop
+     * hosts (accounts.youtube.com, accounts.google.<country>) stay in-app
+     * from anywhere, as before. Iframes are NOT affected: they keep the full
+     * allowlist (shouldOverrideNavigationFrame), so embedded Google widgets
+     * keep working.
+     */
+    private static boolean isMainFrameHostAllowed(Uri uri, boolean signInContext) {
+        String host = uri.getHost();
+        if (host == null) return false;
+        if (hostIs(host, "chatgpt.com") || hostIs(host, "openai.com")
+                || hostIs(host, "accounts.google.com") || isLoginHopUrl(uri)) {
+            return true;
+        }
+        return signInContext && isAllowedHost(host);
+    }
+
+    /**
+     * True if the page a WebView is CURRENTLY on belongs to the sign-in
+     * chain (accounts.google.com, auth.openai.com or a login hop host). A
+     * navigation started from such a page is part of the login; one started
+     * from a chat page (chatgpt.com) is a link the user tapped.
+     */
+    private static boolean isSignInContextUrl(String url) {
+        if (url == null) return false;
+        try {
+            return isLoginChainUrl(url) || isLoginHopUrl(Uri.parse(url));
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /**
@@ -3592,7 +3747,7 @@ public class MainActivity extends Activity {
             return false;
         }
         String host = uri.getHost();
-        if (host != null && !isAllowedHost(host)) {
+        if (host != null && !isAllowedHost(host) && !isLoginHopUrl(uri)) {
             openUrlInBrowser(url);
             return true;
         }

@@ -92,15 +92,26 @@ Allowed hosts (subdomains included): `chatgpt.com`, `openai.com`,
 
 The allowlist is consumed in four places:
 
-1. **Main-frame navigation** — `shouldOverrideNavigation()`: http(s) to an
-   allowed host loads in-app; http(s) anywhere else goes to the system
-   browser; `mailto:`/`tel:`/`sms:`/`geo:`/`intent:`/`market:` go to the
+1. **Main-frame navigation** — `shouldOverrideNavigation()` with
+   `isMainFrameHostAllowed()` (v6.29): `chatgpt.com`, `openai.com`,
+   `accounts.google.com` and the login hop hosts (2.6) load in-app from
+   anywhere. The rest of the allowlist (`google.com` incl. gemini and every
+   other Google subdomain, `googleusercontent.com`, `gstatic.com`) loads
+   in-app ONLY while a sign-in is in progress, i.e. when the navigating
+   WebView's current page is on the sign-in chain
+   (`isSignInContextUrl()`: `accounts.google.com`, `auth.openai.com`, a
+   hop host) or the popup has been on it (`loginChain`). A link tapped in a
+   chat to google.com / gemini.google.com therefore goes to the system
+   browser. http(s) anywhere else goes to the system browser;
+   `mailto:`/`tel:`/`sms:`/`geo:`/`intent:`/`market:` go to the
    browser; `file:`/`content:` are blocked; `blob:`/`data:`/`about:`/
-   `javascript:` load in place.
+   `javascript:` load in place. (API < 24 has no main-frame flag: its legacy
+   callback keeps the iframe policy below for everything.)
 2. **Iframe navigation** — `shouldOverrideNavigationFrame()`: URLs with a
    **null host** (blob:, data:) always load in place; http(s) to a
    non-allowed host goes to the browser. **Do not "harden" this** — see
-   pitfall 4.6-P6.
+   pitfall 4.6-P6. It deliberately keeps the FULL allowlist (no sign-in
+   context rule), so embedded Google widgets keep working.
 3. **JS bridge origin gate** — `WebAppInterface.hostAllowed()` gates every
    bridge method on the WebView's real URL (popups inherit trust from the
    main WebView, because ChatGPT's share popup itself has a `blob:`/`about:`
@@ -329,7 +340,17 @@ part is site-specific only through the selectors and the settle heuristic.
   `*.chatgpt.com` outside `/auth/`, the login is done → load that URL into
   the main WebView and destroy the popup.
 - Non-allowed hosts in a popup go to the system browser and the popup is
-  removed (no black screen left on top of the chat).
+  removed (no black screen left on top of the chat). Exception (v6.29):
+  `LOGIN_HOP_HOSTS` (`accounts.youtube.com`, Google's SetSID session-sync
+  hop, confirmed on device) and `accounts.google.<country domain>` (the
+  next hop; matched exactly against Google's own country-domain list,
+  `GOOGLE_COUNTRY_SUFFIXES`, never by pattern; confirmed on device) load
+  in-app in every frame. This is a navigation-only exception:
+  `isAllowedHost()` is unchanged, so the bridge
+  gate and `maybeRevokePopupTrust()` still treat that host as foreign. If a
+  popup that was on `accounts.google.com` / `auth.openai.com` still ends
+  without reaching `chatgpt.com` (routed to the browser, `onCloseWindow`,
+  renderer gone), `reloadMainAfterLoginPopup()` reloads the main WebView.
 - **Popup ATTACHMENT is deferred (v6.28)** — `createPopup()` returns the
   popup WebView via the transport WITHOUT adding it to the layout. A
   WebView loads and runs JS perfectly well detached; it is attached by
