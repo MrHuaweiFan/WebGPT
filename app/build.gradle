@@ -8,8 +8,8 @@ android {
         applicationId "org.webgpt.app"
         minSdk 21
         targetSdk 34
-        versionCode 109
-        versionName "6.28"
+        versionCode 110
+        versionName "6.29"
         // AGP 8+ disables BuildConfig generation by default. We need it for
         // BuildConfig.APPLICATION_ID in Hooker.java and BuildConfig.DEBUG in
         // MainActivity.java.

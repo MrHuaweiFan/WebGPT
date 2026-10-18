@@ -1,0 +1,7 @@
+What's new
+
+- Google sign-in now completes inside the app: the popup follows Google's redirects and the main page refreshes after login.
+- Only ChatGPT/OpenAI and sign-in pages open in the app; other links open in the browser.
+- Fixed a threading issue in the page-ready bridge call.
+- New package ID org.webgpt.app: installs as a separate app (not an update); sign in again.
+- Official Gradle wrapper, verified in CI.
