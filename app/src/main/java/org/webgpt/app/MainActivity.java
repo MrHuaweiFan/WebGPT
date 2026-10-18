@@ -3397,6 +3397,34 @@ public class MainActivity extends Activity {
      */
     private static final String[] LOGIN_HOP_HOSTS = { "accounts.youtube.com" };
 
+    /**
+     * Second sign-in hop (CONFIRMED on device, v6.29 test round 3): after
+     * accounts.youtube.com Google sets the session cookie on its COUNTRY
+     * domain, accounts.google.<suffix> (the owner saw such a host in the
+     * toast). The suffix depends on the account's country, so the hop is
+     * matched against Google's own list of country domains
+     * (https://www.google.com/supported_domains, fetched 2026-10-18, minus
+     * ".com", which isAllowedHost() already covers), never by pattern: an
+     * exact "accounts.google." + suffix match, nothing else.
+     */
+    private static final java.util.Set<String> GOOGLE_COUNTRY_SUFFIXES =
+            new java.util.HashSet<>(java.util.Arrays.asList((
+            "ad ae al am as at az ba be bf bg bi bj bs bt by ca cat cd cf cg ch" +
+            " ci cl cm cn co.ao co.bw co.ck co.cr co.id co.il co.in co.jp co.ke" +
+            " co.kr co.ls co.ma co.mz co.nz co.th co.tz co.ug co.uk co.uz co.ve" +
+            " co.vi co.za co.zm co.zw com.af com.ag com.ar com.au com.bd com.bh" +
+            " com.bn com.bo com.br com.bz com.co com.cu com.cy com.do com.ec " +
+            "com.eg com.et com.fj com.gh com.gi com.gt com.hk com.jm com.kh " +
+            "com.kw com.lb com.ly com.mm com.mt com.mx com.my com.na com.ng " +
+            "com.ni com.np com.om com.pa com.pe com.pg com.ph com.pk com.pr " +
+            "com.py com.qa com.sa com.sb com.sg com.sl com.sv com.tj com.tr " +
+            "com.tw com.ua com.uy com.vc com.vn cv cz de dj dk dm dz ee es fi " +
+            "fm fr ga ge gg gl gm gr gy hn hr ht hu ie im iq is it je jo kg ki " +
+            "kz la li lk lt lu lv md me mg mk ml mn mu mv mw ne nl no nr nu pl " +
+            "pn ps pt ro rs ru rw sc se sh si sk sm sn so sr st td tg tl tm tn " +
+            "to tt vu ws "
+            ).trim().split("\\s+")));
+
     private static boolean hostIs(String host, String domain) {
         return host.equals(domain) || host.endsWith("." + domain);
     }
@@ -3414,14 +3442,20 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** True for an https URL on one of LOGIN_HOP_HOSTS (see there). */
+    /**
+     * True for an https URL on one of LOGIN_HOP_HOSTS or on
+     * accounts.google.<Google country domain> (see GOOGLE_COUNTRY_SUFFIXES).
+     */
     private static boolean isLoginHopUrl(Uri uri) {
         String host = uri.getHost();
         if (host == null || !"https".equalsIgnoreCase(uri.getScheme())) return false;
         for (String d : LOGIN_HOP_HOSTS) {
             if (hostIs(host, d)) return true;
         }
-        return false;
+        String h = host.toLowerCase(Locale.ROOT);
+        String prefix = "accounts.google.";
+        return h.startsWith(prefix)
+                && GOOGLE_COUNTRY_SUFFIXES.contains(h.substring(prefix.length()));
     }
 
     /**
