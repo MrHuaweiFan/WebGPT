@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
@@ -76,6 +77,16 @@ internal class ImageActions(private val activity: MainActivity) {
 
     /** Fetches [url] into the cache directory, then opens the share chooser. */
     private fun shareImage(url: String) {
+        val trimmed = url.trim()
+        if (trimmed.startsWith("data:", ignoreCase = true)) {
+            shareDataUrl(trimmed)
+            return
+        }
+        if (trimmed.startsWith("blob:", ignoreCase = true)) {
+            // A blob: URL only exists inside the page, so there is nothing to fetch natively.
+            toast("This image cannot be shared directly. Use Download image instead.", long = true)
+            return
+        }
         fetchImage("image-share", url) { connection, mime ->
             val extension = FileNames.extensionForMime(mime) ?: DEFAULT_EXTENSION
             val file = File(activity.cacheDir, "shared_image_${System.currentTimeMillis()}.$extension")
@@ -88,6 +99,32 @@ internal class ImageActions(private val activity: MainActivity) {
                 throw e
             }
             activity.runOnUiThread { shareFile(file, mime) }
+        }
+    }
+
+    /** Decodes an inline data: image into the cache directory, then opens the share chooser. */
+    private fun shareDataUrl(dataUrl: String) {
+        thread(name = "image-share-data") {
+            try {
+                val comma = dataUrl.indexOf(',')
+                require(comma >= 0 && dataUrl.substring(0, comma).contains(";base64", ignoreCase = true)) {
+                    "unsupported inline image"
+                }
+                val mime = FileNames.mimeOfDataUrl(dataUrl).takeIf { it.startsWith("image/") } ?: DEFAULT_MIME
+                val extension = FileNames.extensionForMime(mime) ?: DEFAULT_EXTENSION
+                val bytes = Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT)
+                val file = File(activity.cacheDir, "shared_image_${System.currentTimeMillis()}.$extension")
+                try {
+                    FileOutputStream(file).use { it.write(bytes) }
+                } catch (e: Exception) {
+                    file.delete()
+                    throw e
+                }
+                activity.runOnUiThread { shareFile(file, mime) }
+            } catch (e: Exception) {
+                Log.e(TAG, "inline image share failed", e)
+                toast("Failed: ${e.message}", long = true)
+            }
         }
     }
 
@@ -114,13 +151,16 @@ internal class ImageActions(private val activity: MainActivity) {
         // data: and blob: images have no network URL. The download pipeline already decodes them.
         val trimmed = url.trim()
         if (trimmed.startsWith("data:", ignoreCase = true)) {
-            activity.downloads.handleBlobDownload(FileNames.fromDownload(trimmed, null, null), trimmed)
+            val extension = FileNames.extensionForMime(FileNames.mimeOfDataUrl(trimmed)) ?: DEFAULT_EXTENSION
+            activity.downloads.handleBlobDownload("chatgpt_image_${System.currentTimeMillis()}.$extension", trimmed)
             return
         }
         if (trimmed.startsWith("blob:", ignoreCase = true)) {
             val webView = activity.webViewOrNull
             if (webView != null) {
-                activity.downloads.downloadBlobUrl(webView, trimmed, null, null)
+                // The disposition only carries the name; the extension is fixed from the payload's MIME type.
+                val disposition = "attachment; filename=\"chatgpt_image_${System.currentTimeMillis()}\""
+                activity.downloads.downloadBlobUrl(webView, trimmed, disposition, null)
             } else {
                 toast("Failed: page not ready", long = true)
             }
