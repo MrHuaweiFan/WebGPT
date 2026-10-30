@@ -2,10 +2,8 @@ package org.webgpt.app
 
 import android.app.Activity
 import android.content.DialogInterface
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.os.Process
 import android.util.Log
 import android.widget.Button
 import android.widget.TextView
@@ -108,15 +106,6 @@ class SettingsActivity : Activity() {
         } catch (e: PackageManager.NameNotFoundException) {
             "0"
         }
-
-    private fun restartApp() {
-        packageManager.getLaunchIntentForPackage(packageName)?.let {
-            it.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            startActivity(it)
-        }
-        finishAffinity()
-        Process.killProcess(Process.myPid())
-    }
 
     private companion object {
         const val TAG = "SettingsActivity"

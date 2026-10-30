@@ -1,15 +1,10 @@
 package org.webgpt.app
 
 import android.app.Activity
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 
 /**
  * Transparent trampoline that moves a TEXT share out of the sender's task and
@@ -80,17 +75,7 @@ class ShareRelayActivity : Activity() {
 
     /** Degraded mode when forwarding failed: copy the text and tell the user to paste it. */
     private fun copyToClipboard() {
-        try {
-            val text = shareIntent?.let(::extractText) ?: return
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
-            clipboard.setPrimaryClip(ClipData.newPlainText("WebGPT", text))
-            // Android 13+ shows its own "Copied" overlay.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                Toast.makeText(this, "Text copied — paste it into WebGPT", Toast.LENGTH_LONG).show()
-            }
-        } catch (ignored: Throwable) {
-            // Nothing left to fall back to.
-        }
+        shareIntent?.let(::extractText)?.let { copyShareToClipboard(it) }
     }
 
     private fun extractText(intent: Intent): String? = when (intent.action) {
