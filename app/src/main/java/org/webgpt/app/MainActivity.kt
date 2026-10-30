@@ -68,7 +68,7 @@ class MainActivity : Activity() {
     // These keep state across a renderer crash, so they are created once and
     // re-attached to the replacement WebView.
     private val webClients = WebClients(this)
-    private val downloads = Downloads(this)
+    internal val downloads = Downloads(this)
     private val imageActions = ImageActions(this)
 
     @SuppressLint("SetJavaScriptEnabled")

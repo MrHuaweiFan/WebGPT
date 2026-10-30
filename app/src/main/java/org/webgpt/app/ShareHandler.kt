@@ -7,11 +7,13 @@ import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
+import android.view.inputmethod.InputMethodManager
 import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.concurrent.thread
+import org.json.JSONObject
 
 /** The stream attached to a share intent, or null if it is missing or not a Uri. */
 @Suppress("DEPRECATION")
@@ -198,12 +200,267 @@ class ShareHandler(private val activity: MainActivity) {
         return result ?: uri.lastPathSegment
     }
 
-    // <<MORE-SHARE>>
+    /**
+     * Tells the page's focus guard that a share is in progress, so it lets the
+     * composer take focus for the next few seconds.
+     */
+    fun markShareActive() {
+        val webView = activity.webViewOrNull ?: return
+        if (activity.isFinishing) return
+        webView.evaluateJavascript("try{window.__webgptShareActiveUntil=Date.now()+6000;}catch(e){}", null)
+    }
+
+    /**
+     * Starts the share pipelines that were deferred because the page was still loading.
+     * Called from both the DOM-ready signal and onPageFinished. Whichever comes first
+     * wins: the flags are cleared synchronously on the UI thread before the async wait
+     * begins, so a second call does nothing and a file cannot be attached twice.
+     */
+    fun kickPendingSharePipelines() {
+        if (pendingAutoAttach) {
+            pendingAutoAttach = false
+            // Without a base64 payload (file too large) only the manual "+ → Files" path remains.
+            if (pendingFileB64 != null) waitForComposerReady(25_000, ::runFileDropSequence)
+        }
+        if (pendingAutoFocusText) {
+            pendingAutoFocusText = false
+            waitForComposerReady(25_000, ::settleComposerAfterAutoAttach)
+        }
+    }
+
+    /**
+     * Polls the page until the SPA has really loaded, then runs [action].
+     *
+     * Ready means the composer exists and either the splash greeting or the prompt
+     * chips are visible, or the page has had no DOM mutation for 2 s and no
+     * fetch/XHR start for 1.5 s (trackers installed at document start in
+     * `window.__webgptLoad`). [maxMs] is a safety net: when it passes, [action]
+     * runs anyway.
+     */
+    fun waitForComposerReady(maxMs: Int, action: () -> Unit) {
+        if (activity.webViewOrNull == null || activity.isFinishing) return
+        val deadline = SystemClock.elapsedRealtime() + maxMs
+        lateinit var tick: Runnable
+        tick = Runnable {
+            val webView = activity.webViewOrNull
+            if (webView == null || activity.isFinishing) return@Runnable
+            webView.evaluateJavascript(COMPOSER_READY_JS) { result ->
+                // evaluateJavascript delivers strings JSON-quoted.
+                val signal = result?.trim('"').orEmpty()
+                if (signal.startsWith("ready") || SystemClock.elapsedRealtime() >= deadline) {
+                    action()
+                } else {
+                    webView.postDelayed(tick, COMPOSER_POLL_MS)
+                }
+            }
+        }
+        tick.run()
+    }
+
+    /**
+     * Feeds the pending shared file into the site's composer. The base64 payload is
+     * pushed into the page in chunks, then a File is built in JavaScript and handed
+     * to the composer's `<input type=file>`, which runs the site's own attach
+     * handler. Synthetic drag events are used only when the page has no file input.
+     */
+    fun runFileDropSequence() {
+        val webView = activity.webViewOrNull ?: return
+        val b64 = pendingFileB64
+        val name = pendingFileName
+        if (activity.isFinishing || b64 == null || name == null) return
+        pendingFileB64 = null // consumed
+
+        webView.evaluateJavascript("window.__webgptFileB64='';", null)
+        var start = 0
+        while (start < b64.length) {
+            val end = minOf(start + FILE_CHUNK_CHARS, b64.length)
+            // The base64 alphabet is safe inside a JavaScript string literal.
+            webView.evaluateJavascript(
+                "(function(){window.__webgptFileB64=(window.__webgptFileB64||'')+'${b64.substring(start, end)}';})();",
+                null,
+            )
+            start = end
+        }
+
+        // Mark the injection before dispatching: a file chooser that opens during or
+        // right after it is the site re-triggering, not the user (see FileChooser).
+        lastFileInjectionAt = SystemClock.elapsedRealtime()
+        webView.evaluateJavascript(
+            fileDropScript(name, pendingFileMime ?: FileNames.DEFAULT_MIME),
+            null,
+        )
+
+        // The SPA can run a late hydration pass that steals focus, so re-assert
+        // focus and the keyboard several times after the drop lands.
+        for (delayMs in longArrayOf(500, 1500, 2500)) {
+            webView.postDelayed({ settleComposerAfterAutoAttach() }, delayMs)
+        }
+        for (delayMs in longArrayOf(800, 2000)) {
+            webView.postDelayed({ showKeyboardForComposer() }, delayMs)
+        }
+    }
+
+    private fun fileDropScript(name: String, mime: String): String = """
+        (function () {
+          try {
+            window.__webgptShareActiveUntil = Date.now() + 6000;
+            var b64 = window.__webgptFileB64 || '';
+            window.__webgptFileB64 = null;
+            var AB = window.${WebAppBridge.NAME};
+            if (!b64) { if (AB && AB.onFileDropResult) AB.onFileDropResult(false, 'no data'); return; }
+            var bin = atob(b64);
+            var n = bin.length;
+            var bytes = new Uint8Array(n);
+            for (var i = 0; i < n; i++) bytes[i] = bin.charCodeAt(i);
+            var file = new File([bytes], ${JSONObject.quote(name)}, {type: ${JSONObject.quote(mime)}});
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            var el = $COMPOSER_LOOKUP_JS;
+            var input = null;
+            try {
+              var inputs = document.querySelectorAll('input[type=file]');
+              if (inputs.length) input = inputs[0];
+            } catch (e) {}
+            if (input) {
+              try { input.files = dt.files; } catch (e) {
+                try { Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'files').set.call(input, dt.files); } catch (e2) {}
+              }
+              try { input.dispatchEvent(new Event('input', {bubbles: true})); } catch (e) {}
+              try { input.dispatchEvent(new Event('change', {bubbles: true})); } catch (e) {}
+              if (el) { try { el.focus({preventScroll: true}); } catch (e) {} }
+              if (AB && AB.onFileDropResult) AB.onFileDropResult(true, 'input ' + n + ' bytes');
+              return;
+            }
+            if (!el) { if (AB && AB.onFileDropResult) AB.onFileDropResult(false, 'no composer'); return; }
+            try { el.dispatchEvent(new DragEvent('dragenter', {bubbles: true, cancelable: true, dataTransfer: dt})); } catch (e) {}
+            try { el.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, dataTransfer: dt})); } catch (e) {}
+            try { el.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt})); } catch (e) {}
+            try { document.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, dataTransfer: dt})); } catch (e) {}
+            try { document.dispatchEvent(new DragEvent('dragend', {bubbles: true, cancelable: true})); } catch (e) {}
+            try { document.dispatchEvent(new DragEvent('dragleave', {bubbles: true, cancelable: true})); } catch (e) {}
+            try { el.focus({preventScroll: true}); } catch (e) {}
+            setTimeout(function () {
+              try { document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true})); } catch (e) {}
+              try { document.dispatchEvent(new KeyboardEvent('keyup', {key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true})); } catch (e) {}
+              try { el.focus({preventScroll: true}); } catch (e) {}
+            }, 350);
+            if (AB && AB.onFileDropResult) AB.onFileDropResult(true, 'dropped ' + n + ' bytes');
+          } catch (e) {
+            try { var AB2 = window.${WebAppBridge.NAME}; if (AB2 && AB2.onFileDropResult) AB2.onFileDropResult(false, String(e)); } catch (e2) {}
+          }
+        })();
+    """.trimIndent()
+
+    /** Bridge callback: the page accepted or rejected the injected file. */
+    fun handleFileDropResult(ok: Boolean, detail: String?) {
+        Log.i(TAG, "drop result: ${if (ok) "ok" else "failed"} $detail")
+        if (ok) {
+            // Attached. Clear the manual-fallback Uri so it cannot hijack a later chooser.
+            pendingShareFileUri = null
+            // Check again after 3 s that the attachment is still visible, which catches
+            // the site discarding it right after accepting it (attachment limit).
+            val checkName = pendingFileName
+            activity.webViewOrNull?.postDelayed({ verifyAttachmentVisible(checkName) }, ATTACH_CHECK_DELAY_MS)
+        } else if (pendingShareFileUri != null) {
+            activity.longToast("Couldn't attach automatically — tap + and choose Files")
+        }
+    }
+
+    /** Diagnostic: does the composer still show the attachment? Logs the answer. */
+    private fun verifyAttachmentVisible(name: String?) {
+        val webView = activity.webViewOrNull ?: return
+        if (activity.isFinishing || name == null) return
+        val script = """
+            (function () {
+              var name = ${JSONObject.quote(name)};
+              var nodes = document.querySelectorAll('[data-testid*=attachment i],[class*=attachment i],[aria-label*=file i],div,span,button');
+              for (var i = 0; i < nodes.length; i++) {
+                var t = (nodes[i].textContent || '') + ' ' + (nodes[i].getAttribute('aria-label') || '');
+                if (t.indexOf(name) >= 0 && t.length < 300) return 'visible';
+              }
+              return 'gone';
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script) { result ->
+            Log.i(TAG, "attach check: ${result?.trim('"').orEmpty()}")
+        }
+    }
+
+    /**
+     * Focuses the composer so a pending attachment commits and pasted text lands.
+     * Focus only, no click: an earlier selector matched the "+" attach button.
+     * [COMPOSER_LOOKUP_JS] matches editable elements only.
+     */
+    fun settleComposerAfterAutoAttach() {
+        val webView = activity.webViewOrNull ?: return
+        if (activity.isFinishing) return
+        val script = """
+            (function () {
+              try {
+                window.__webgptShareActiveUntil = Date.now() + 6000;
+                var el = $COMPOSER_LOOKUP_JS;
+                var AB = window.${WebAppBridge.NAME};
+                if (!el) { try { if (AB && AB.debugLog) AB.debugLog('composer NOT FOUND'); } catch (e) {} return; }
+                try { if (AB && AB.debugLog) AB.debugLog('composer focus: ' + (el.id || el.getAttribute('data-testid') || el.tagName)); } catch (e) {}
+                try { el.focus({preventScroll: true}); } catch (e) { try { el.focus(); } catch (e2) {} }
+                try { el.dispatchEvent(new Event('focus', {bubbles: true})); } catch (e) {}
+                try { el.dispatchEvent(new Event('focusin', {bubbles: true})); } catch (e) {}
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+        // JavaScript focus alone does not reliably bring up the Android keyboard, and the
+        // site only commits a pending attachment while the composer is focused.
+        showKeyboardForComposer()
+    }
+
+    /** Shows the soft keyboard for the WebView's composer. */
+    fun showKeyboardForComposer() {
+        try {
+            val webView = activity.webViewOrNull ?: return
+            if (activity.isFinishing) return
+            webView.requestFocus()
+            activity.getSystemService(InputMethodManager::class.java)
+                ?.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT)
+        } catch (t: Throwable) {
+            Log.e(TAG, "showKeyboardForComposer failed", t)
+        }
+    }
 
     companion object {
         private const val TAG = "WebGPTApp"
         private const val LOG_PREVIEW_CHARS = 80
         private const val MAX_INJECT_BYTES = 50L * 1024 * 1024
+        private const val FILE_CHUNK_CHARS = 524_288
+        private const val COMPOSER_POLL_MS = 700L
+        private const val ATTACH_CHECK_DELAY_MS = 3_000L
+
+        /** A JavaScript expression that evaluates to the composer element, or null. */
+        private const val COMPOSER_LOOKUP_JS =
+            "(document.querySelector('#prompt-textarea')" +
+                " || document.querySelector('div[contenteditable=\"true\"][role=\"textbox\"]')" +
+                " || document.querySelector('div[contenteditable=\"true\"]')" +
+                " || document.querySelector('textarea[placeholder]'))"
+
+        /** Evaluates to 'ready|..' or 'wait|..' (or a boolean when the load trackers are missing). */
+        private val COMPOSER_READY_JS = """
+            (function () {
+              var el = !!$COMPOSER_LOOKUP_JS;
+              var hEl = document.querySelector('[data-splash-headline-option]');
+              var cEl = document.querySelector('[data-testid="use-case-prompt-chips"] button');
+              function vis(e) {
+                try { var r = e && e.getClientRects(); return !!(r && r.length && r[0].height > 0 && r[0].width > 0); }
+                catch (x) { return false; }
+              }
+              var mk = !!((hEl && vis(hEl)) || (cEl && vis(cEl)));
+              var L = window.__webgptLoad;
+              if (!L) return el;
+              var now = Date.now();
+              var domAge = now - L.lastMut, netAge = now - L.lastStart;
+              return (el && (mk || (domAge > 2000 && netAge > 1500)))
+                ? 'ready|' + domAge + '|' + netAge : 'wait|' + domAge + '|' + netAge;
+            })();
+        """.trimIndent()
 
         /** How long after a share the file chooser may hand over the pending file. */
         const val SHARE_ATTACH_WINDOW_MS = 60_000L

@@ -55,8 +55,8 @@ Requirements: JDK 17+ and the Android SDK (platform 34, build-tools 34.0.0).
 
 ## Customizing
 
-- **Wrapped site**: edit `URL` in `MainActivity.java`.
-- **Allowed hostnames for in-app navigation**: edit `isAllowedHost()` in `MainActivity.java`.
+- **Wrapped site**: edit `HOME_URL` in `SiteConfig.kt`.
+- **Allowed hostnames for in-app navigation**: edit `isAllowedHost()` in `NavigationPolicy.kt`.
 - **App name**: edit `<string name="app_name">WebGPT</string>` in
   `app/src/main/res/values/strings.xml`.
 - **App icon**: replace the `ic_launcher.png` files under

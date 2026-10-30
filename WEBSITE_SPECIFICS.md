@@ -57,7 +57,7 @@
 ## 2. Everything wired to chatgpt.com in this codebase
 
 Everything in this section is **ChatGPT-specific**. Each item says where it
-lives (all in `MainActivity.java` unless noted) and what to do when porting.
+lives (in the Kotlin sources under `app/src/main/java/org/webgpt/app/`) and what to do when porting.
 
 ### 2.1 Constants: target URL, User-Agent, extra headers
 
@@ -198,7 +198,7 @@ chatgpt.com behavior. **Port it as-is first, then verify** on the target site.
    `AndroidBridge.shareText` / `shareFile` / `copyToClipboard`. There is
    **no JS-side origin gate** on purpose: ChatGPT runs its share/export UI in
    `blob:` and cross-origin iframes, and a JS allowlist blocked exactly those
-   calls (symptom: the share spinner stops and nothing happens). The Java
+   calls (symptom: the share spinner stops and nothing happens). The Kotlin
    side still gates every bridge method (see 2.2). `toString()` is spoofed to
    `function share() { [native code] }` so feature-detecting page code sees a
    native-looking function. `canShare` is honest: text/url/title or exactly
@@ -218,7 +218,7 @@ chatgpt.com behavior. **Port it as-is first, then verify** on the target site.
    + document-level capture click listener for `a[download]` with `blob:`
    hrefs → `webgptFetchBlob()`: look the Blob up in the keeper (including
    child frames and `window.parent` — the export UI runs in an iframe), fall
-   back to sync XHR, then async `fetch()`. Payload goes to Java in 256 KB
+   back to sync XHR, then async `fetch()`. Payload goes to Kotlin in 256 KB
    base64 chunks (`onBlobChunk`) or one shot (`onBlobDownload`).
 5. **Load-state tracker** `window.__webgptLoad` — wraps `fetch` and
    `XMLHttpRequest.open` (last request-start timestamp) plus a
@@ -241,7 +241,7 @@ on top of a usable page ("site loaded, app not responding"). The watcher
 polls every 200 ms, **main frame only**, host-gated to `chatgpt.com` /
 `openai.com`, and calls `AndroidBridge.pageReady()` when the composer exists
 **and** one of: a visible page-ready marker (2.3), or the settle heuristic,
-with an 8 s hard cap. Java side (`onDomReady()`) then fades the loading
+with an 8 s hard cap. Kotlin side (`LoadingScreen.onDomReady()`) then fades the loading
 overlay.
 
 This is the **misleading-full-load detection system** — chatgpt.com's
@@ -291,7 +291,7 @@ blindly.
 Receiving a shared file (Android `ACTION_SEND`) and attaching it to the
 ChatGPT composer is the most site-coupled pipeline in the app. Stages:
 
-1. Java copies the file to the app cache (sanitized name), reads it as base64
+1. `ShareHandler` copies the file to the app cache (sanitized name), reads it as base64
    if < 50 MB, stages it into the page in **512 KB chunks** via
    `window.__webgptFileB64`.
 2. **Primary injection** (`runFileDropSequence()`): build a `File` +
@@ -305,7 +305,7 @@ ChatGPT composer is the most site-coupled pipeline in the app. Stages:
    down.
 4. **Commit window:** ChatGPT only commits a pending attachment while the
    composer is focused within roughly 1 second of the file landing; unattended,
-   it silently drops it. So Java re-focuses the composer in staggered passes
+   it silently drops it. So `ShareHandler` re-focuses the composer in staggered passes
    (`settleComposerAfterAutoAttach()` at 200/500/900/1400 ms — and
    500/1500/2500 ms after a drop) and summons the keyboard
    (`showKeyboardForComposer()`).
@@ -392,7 +392,7 @@ marker for the popup-close logic.
 
 ChatGPT's exports (PDF/Word/Markdown chat exports, generated files) are
 `blob:` anchor downloads created in iframes — the reason the whole blob
-machinery in 2.4 exists. Around it, the Java side is generic: MediaStore
+machinery in 2.4 exists. Around it, the Kotlin side (`Downloads.kt`) is generic: MediaStore
 saves on Android 10+, legacy storage permission below, `Content-Disposition`
 filename parsing, filename sanitization, cookie+UA-aware `HttpURLConnection`
 downloads for http(s), data-URL saves, an 8 s suppression of the dead-URL
@@ -564,7 +564,7 @@ WEBSITE_SPECIFICS.md lists):
 
 ### 4.1 Rebranding checklist (mechanical)
 
-1. `applicationId` / `namespace` in `app/build.gradle` and the Java package
+1. `applicationId` / `namespace` in `app/build.gradle` and the source package
    tree (`org.webgpt.app` → `org.<newapp>.app`).
 2. `versionCode`/`versionName` reset to the derivative's own scheme — do
    **not** inherit the base's version numbers; keep your own monotonic
@@ -670,7 +670,7 @@ series; most also have a comment at the relevant code site.
   silently.
 - **P5 — No JS-side origin gate on share/blob overrides.** The share UI
   runs in blob:/cross-origin iframes; a JS allowlist blocks exactly the
-  calls you are trying to fix. Gate in Java (`hostAllowed()`), never in the
+  calls you are trying to fix. Gate in Kotlin (`WebAppBridge.hostAllowed()`), never in the
   injected script.
 - **P6 — Don't scheme-allowlist iframes.** Blocking blob:/data: iframes
   broke ChatGPT's investigation panel ("Error loading application: Runtime
