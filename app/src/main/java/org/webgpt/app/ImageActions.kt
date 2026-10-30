@@ -111,6 +111,21 @@ internal class ImageActions(private val activity: MainActivity) {
 
     /** Fetches [url] and saves it into the public Download folder. */
     private fun downloadImage(url: String) {
+        // data: and blob: images have no network URL. The download pipeline already decodes them.
+        val trimmed = url.trim()
+        if (trimmed.startsWith("data:", ignoreCase = true)) {
+            activity.downloads.handleBlobDownload(FileNames.fromDownload(trimmed, null, null), trimmed)
+            return
+        }
+        if (trimmed.startsWith("blob:", ignoreCase = true)) {
+            val webView = activity.webViewOrNull
+            if (webView != null) {
+                activity.downloads.downloadBlobUrl(webView, trimmed, null, null)
+            } else {
+                toast("Failed: page not ready", long = true)
+            }
+            return
+        }
         fetchImage("image-download", url) { connection, mime ->
             val extension = FileNames.extensionForMime(mime) ?: DEFAULT_EXTENSION
             val fileName = "chatgpt_image_${System.currentTimeMillis()}.$extension"
@@ -173,9 +188,11 @@ internal class ImageActions(private val activity: MainActivity) {
     }
 
     private fun openConnection(url: String, cookies: String?, userAgent: String): HttpURLConnection {
-        val scheme = Uri.parse(url).scheme?.lowercase(Locale.ROOT)
-        require(scheme == "http" || scheme == "https") { "unsupported image link" }
-        return (URL(url).openConnection() as HttpURLConnection).apply {
+        // java.net.URL tolerates surrounding whitespace, Uri.parse does not (v6.29 used URL only).
+        val clean = url.trim()
+        val scheme = Uri.parse(clean).scheme?.lowercase(Locale.ROOT)
+        require(scheme == "http" || scheme == "https") { "unsupported image link (${scheme ?: "no scheme"})" }
+        return (URL(clean).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             instanceFollowRedirects = true
             connectTimeout = CONNECT_TIMEOUT_MS

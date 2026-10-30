@@ -110,7 +110,7 @@ internal class Downloads(private val activity: MainActivity) {
      * URL on the bridge. This still works after the site called revokeObjectURL(),
      * because the injected hook delays the real revocation.
      */
-    private fun downloadBlobUrl(
+    internal fun downloadBlobUrl(
         webView: WebView,
         blobUrl: String,
         contentDisposition: String?,

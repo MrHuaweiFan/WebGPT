@@ -74,8 +74,9 @@ internal class WebAppBridge(
     /** navigator.share({ text }) fallback: copies silently, the site shows its own "Copied!". */
     @JavascriptInterface
     fun copyToClipboard(text: String?) {
-        if (text == null || !hostAllowed()) return
-        activity.runOnUiThread { activity.copyText(text) }
+        if (text == null) return
+        // hostAllowed() reads WebView state, so the check runs on the UI thread.
+        activity.runOnUiThread { if (hostAllowed()) activity.copyText(text) }
     }
 
     /** navigator.share({ text, url }): opens the system share sheet. */
@@ -95,40 +96,44 @@ internal class WebAppBridge(
     /** Blob-download callback: the in-page read finished and delivers a data URL. */
     @JavascriptInterface
     fun onBlobResult(dataUrl: String?) {
-        if (dataUrl == null || !hostAllowed()) return
-        activity.runOnUiThread { activity.downloads.handleBlobResult(dataUrl) }
+        if (dataUrl == null) return
+        activity.runOnUiThread { if (hostAllowed()) activity.downloads.handleBlobResult(dataUrl) }
     }
 
     /** Blob-download callback: the in-page fetch or read failed. */
     @JavascriptInterface
     fun onBlobFailed() {
-        // Gated because it changes shared download state.
-        if (!hostAllowed()) return
-        activity.runOnUiThread { activity.downloads.handleBlobFailed() }
+        // Gated because it changes shared download state. The gate runs on the UI thread.
+        activity.runOnUiThread { if (hostAllowed()) activity.downloads.handleBlobFailed() }
     }
 
     /** Direct blob download from the anchor-click hook, while the blob URL is still alive. */
     @JavascriptInterface
     fun onBlobDownload(name: String?, dataUrl: String?) {
-        if (name == null || dataUrl == null || !hostAllowed()) return
-        activity.runOnUiThread { activity.downloads.handleBlobDownload(name, dataUrl) }
+        if (name == null || dataUrl == null) return
+        activity.runOnUiThread { if (hostAllowed()) activity.downloads.handleBlobDownload(name, dataUrl) }
     }
 
     /** One piece of a large export. The last piece assembles and saves the file. */
     @JavascriptInterface
     fun onBlobChunk(name: String?, mime: String?, index: Int, total: Int, data: String?) {
-        if (!hostAllowed()) return
-        val payload = activity.downloads.blobTransfers.append(name, index, total, data) ?: return
-        val dataUrl = "data:${safeMime(mime)};base64,$payload"
-        activity.runOnUiThread { activity.downloads.handleBlobDownload(name.orEmpty(), dataUrl) }
+        // Runs entirely on the UI thread (posts keep their order), so the gate and the
+        // chunk buffer are never touched from the JavaBridge thread.
+        activity.runOnUiThread {
+            if (!hostAllowed()) return@runOnUiThread
+            val payload = activity.downloads.blobTransfers.append(name, index, total, data)
+                ?: return@runOnUiThread
+            val dataUrl = "data:${safeMime(mime)};base64,$payload"
+            activity.downloads.handleBlobDownload(name.orEmpty(), dataUrl)
+        }
     }
 
     /** Result of the file-drop injection: clears the manual fallback or prompts the user. */
     @JavascriptInterface
     fun onFileDropResult(ok: Boolean, detail: String?) {
         // Gated so an unserved frame cannot confirm or cancel the user's pending share.
-        if (!hostAllowed()) return
-        activity.runOnUiThread { activity.share.handleFileDropResult(ok, detail) }
+        // The gate reads WebView state, so it runs on the UI thread, not the JavaBridge thread.
+        activity.runOnUiThread { if (hostAllowed()) activity.share.handleFileDropResult(ok, detail) }
     }
 
     /** Page-side diagnostics. Logcat only, in experimental builds. Never a toast. */

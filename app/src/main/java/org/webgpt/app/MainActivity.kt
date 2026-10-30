@@ -460,7 +460,7 @@ class MainActivity : Activity() {
         super.onConfigurationChanged(newConfig)
         // uiMode is in configChanges, so the activity and WebView survive a dark-mode
         // switch. Everything that was themed at creation is re-applied by hand.
-        loadingScreen.updateLogoForTheme()
+        if (::loadingScreen.isInitialized) loadingScreen.updateLogoForTheme()
         applyBackgroundColors()
         applySystemBarColors()
     }
@@ -494,7 +494,8 @@ class MainActivity : Activity() {
         // (swipe-away) from counting toward the "pick another WebView" bounce.
         CrashTracker.reset()
         popups.destroyAll()
-        loadingScreen.stopLogoAnimation()
+        // Not initialized when onCreate bailed out early (share relay, pre-launch checks).
+        if (::loadingScreen.isInitialized) loadingScreen.stopLogoAnimation()
         if (::webView.isInitialized) {
             // Documented teardown order: detach, remove child views, destroy.
             try {
