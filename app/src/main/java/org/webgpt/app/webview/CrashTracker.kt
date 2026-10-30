@@ -3,7 +3,7 @@ package org.webgpt.app.webview
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import org.webgpt.app.App
+import org.webgpt.app.appPrefs
 
 /**
  * Crash recovery safety net.
@@ -30,7 +30,7 @@ object CrashTracker {
     /** Called from Application.onCreate(). Counts this launch as a possible crash. */
     @JvmStatic
     fun init(context: Context) {
-        prefs = context.getSharedPreferences(App.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs = context.appPrefs
         increase()
         Log.i(TAG, "Crash count = $count")
     }

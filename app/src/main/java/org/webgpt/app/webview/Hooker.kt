@@ -110,7 +110,7 @@ object Hooker {
                 return
             }
 
-            val provider = WebViewUtil.getCurrentProvider()
+            val provider = WebViewUtil.currentProvider
             if (provider == null) {
                 Log.w(TAG, "No current provider; not hooking provider")
                 return

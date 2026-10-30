@@ -34,7 +34,7 @@ class IWebViewUpdateServiceProxy(remoteBinder: IBinder, stubClass: Class<*>) : I
     }
 
     private fun swapPackageInfo(response: Any) {
-        val chosen = WebViewUtil.getCustomProvider()
+        val chosen = WebViewUtil.customProvider
         if (chosen == null) {
             Log.w(TAG, "waitForAndGetProvider: no custom provider chosen, returning default")
             return

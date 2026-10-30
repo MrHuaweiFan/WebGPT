@@ -3,6 +3,7 @@ package org.webgpt.app.webview
 import android.content.Context
 import android.content.pm.PackageManager
 import org.webgpt.app.App
+import org.webgpt.app.appPrefs
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 
@@ -36,8 +37,7 @@ class IPackageManagerProxy(
     }
 
     private fun isOptimizeEnabled(): Boolean =
-        context.getSharedPreferences(App.PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(App.PREF_WEBVIEW_OPTIMIZE, false)
+        context.appPrefs.getBoolean(App.PREF_WEBVIEW_OPTIMIZE, false)
 
     private companion object {
         const val FEATURE_LOW_LATENCY_AUDIO = "android.hardware.audio.low_latency"
