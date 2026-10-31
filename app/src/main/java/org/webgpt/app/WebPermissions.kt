@@ -19,7 +19,7 @@ internal class WebPermissions(private val activity: MainActivity) {
         activity.runOnUiThread {
             if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
             try {
-                if (!NavigationPolicy.isAllowedHost(request.origin?.host)) {
+                if (!NavigationPolicy.isSiteHost(request.origin?.host)) {
                     request.denyQuietly()
                     return@runOnUiThread
                 }
@@ -73,6 +73,6 @@ internal class WebPermissions(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
     }
 }
