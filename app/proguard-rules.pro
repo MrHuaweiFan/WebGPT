@@ -13,7 +13,7 @@
 # ─── ContentProvider (declared in manifest) ─────────────────────────────────
 -keep class org.webgpt.app.webview.DeveloperModeContentProvider { *; }
 
-# ─── Reflection targets in Hooker.java ────────────────────────────────
+# ─── Reflection targets in Hooker.kt ────────────────────────────────
 # These classes are loaded by name via Class.forName().
 -keep class org.webgpt.app.webview.IServiceManagerProxy { *; }
 -keep class org.webgpt.app.webview.IWebViewUpdateServiceProxy { *; }

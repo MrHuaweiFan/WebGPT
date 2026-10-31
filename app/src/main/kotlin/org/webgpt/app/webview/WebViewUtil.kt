@@ -173,9 +173,4 @@ object WebViewUtil {
     fun label(context: Context, info: PackageInfo): CharSequence =
         runCatching { info.applicationInfo?.let { context.packageManager.getApplicationLabel(it) } }
             .getOrNull() ?: info.packageName
-
-    /** Display text such as "Android System WebView 130.0.6723.107". */
-    @JvmStatic
-    fun describe(context: Context, info: PackageInfo?): String =
-        if (info == null) "(unknown)" else "${label(context, info)} ${info.versionName}"
 }
