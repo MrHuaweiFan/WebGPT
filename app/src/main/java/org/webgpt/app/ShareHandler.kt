@@ -360,32 +360,8 @@ class ShareHandler(private val activity: MainActivity) {
         if (ok) {
             // Attached. Clear the manual-fallback Uri so it cannot hijack a later chooser.
             pendingShareFileUri = null
-            // Check again after 3 s that the attachment is still visible, which catches
-            // the site discarding it right after accepting it (attachment limit).
-            val checkName = pendingFileName
-            activity.webViewOrNull?.postDelayed({ verifyAttachmentVisible(checkName) }, ATTACH_CHECK_DELAY_MS)
         } else if (pendingShareFileUri != null) {
             activity.longToast("Couldn't attach automatically — tap + and choose Files")
-        }
-    }
-
-    /** Diagnostic: does the composer still show the attachment? Logs the answer. */
-    private fun verifyAttachmentVisible(name: String?) {
-        val webView = activity.webViewOrNull ?: return
-        if (activity.isFinishing || name == null) return
-        val script = """
-            (function () {
-              var name = ${JSONObject.quote(name)};
-              var nodes = document.querySelectorAll('[data-testid*=attachment i],[class*=attachment i],[aria-label*=file i],div,span,button');
-              for (var i = 0; i < nodes.length; i++) {
-                var t = (nodes[i].textContent || '') + ' ' + (nodes[i].getAttribute('aria-label') || '');
-                if (t.indexOf(name) >= 0 && t.length < 300) return 'visible';
-              }
-              return 'gone';
-            })();
-        """.trimIndent()
-        webView.evaluateJavascript(script) { result ->
-            Log.i(TAG, "attach check: ${result?.trim('"').orEmpty()}")
         }
     }
 
@@ -436,7 +412,6 @@ class ShareHandler(private val activity: MainActivity) {
         private const val MAX_INJECT_BYTES = 50L * 1024 * 1024
         private const val FILE_CHUNK_CHARS = 524_288
         private const val COMPOSER_POLL_MS = 700L
-        private const val ATTACH_CHECK_DELAY_MS = 3_000L
 
         /** A JavaScript expression that evaluates to the composer element, or null. */
         private val COMPOSER_LOOKUP_JS = SiteConfig.composerLookupJs()
