@@ -46,7 +46,7 @@ class App : Application() {
     }
 
     companion object {
-        private const val TAG = "WebGPTApp"
+        private const val TAG = SiteConfig.LOG_TAG
         const val PREFS_NAME = "webgpt_prefs"
         const val PREF_WEBVIEW_OPTIMIZE = "webview_optimize"
         const val PREF_LOADING_PROGRESS = "loading_progress"

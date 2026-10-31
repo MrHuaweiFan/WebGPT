@@ -428,7 +428,7 @@ class ShareHandler(private val activity: MainActivity) {
     }
 
     companion object {
-        private const val TAG = "WebGPTApp"
+        private const val TAG = SiteConfig.LOG_TAG
         private const val LOG_PREVIEW_CHARS = 80
         private const val MAX_INJECT_BYTES = 50L * 1024 * 1024
         private const val FILE_CHUNK_CHARS = 524_288
@@ -436,11 +436,7 @@ class ShareHandler(private val activity: MainActivity) {
         private const val ATTACH_CHECK_DELAY_MS = 3_000L
 
         /** A JavaScript expression that evaluates to the composer element, or null. */
-        private const val COMPOSER_LOOKUP_JS =
-            "(document.querySelector('#prompt-textarea')" +
-                " || document.querySelector('div[contenteditable=\"true\"][role=\"textbox\"]')" +
-                " || document.querySelector('div[contenteditable=\"true\"]')" +
-                " || document.querySelector('textarea[placeholder]'))"
+        private val COMPOSER_LOOKUP_JS = SiteConfig.composerLookupJs()
 
         /** Evaluates to 'ready|..' or 'wait|..' (or a boolean when the load trackers are missing). */
         private val COMPOSER_READY_JS = """

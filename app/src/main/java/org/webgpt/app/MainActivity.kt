@@ -512,7 +512,7 @@ class MainActivity : Activity() {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
         const val SPLASH_FADE_MS = 300L
 
         // ChatGPT's own surface colors (see SiteConfig for the other site specifics).

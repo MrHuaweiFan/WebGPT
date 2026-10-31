@@ -85,7 +85,7 @@ class ShareRelayActivity : Activity() {
     }
 
     companion object {
-        private const val TAG = "WebGPTApp"
+        private const val TAG = SiteConfig.LOG_TAG
 
         /** Extra carrying the original share intent. */
         const val EXTRA_SHARE_INTENT = "share_intent"

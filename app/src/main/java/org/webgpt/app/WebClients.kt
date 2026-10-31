@@ -182,7 +182,7 @@ internal class WebClients(private val activity: MainActivity) {
             loadingScreen.overlay.visibility = android.view.View.GONE
             MaterialAlertDialogBuilder(activity)
                 .setTitle("Connection problem")
-                .setMessage("Couldn't load chatgpt.com. Check your internet connection and try again.")
+                .setMessage("Couldn't load ${SiteConfig.HOME_HOST}. Check your internet connection and try again.")
                 .setCancelable(false)
                 .setPositiveButton("Retry") { _, _ ->
                     offlineDialogShowing = false
@@ -203,7 +203,7 @@ internal class WebClients(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
         const val OVERLAY_SHOW_DELAY_MS = 200L
         const val OVERLAY_FALLBACK_HIDE_MS = 3_500L
     }

@@ -175,7 +175,7 @@ internal class FileChooser(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
 
         /** The site re-opens its file input right after a programmatic attach; that must not attach twice. */
         const val RETRIGGER_IGNORE_MS = 4000L

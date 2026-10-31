@@ -146,7 +146,7 @@ internal class WebAppBridge(
         /** The name pages see: `window.AndroidBridge`. */
         const val NAME = "AndroidBridge"
 
-        private const val TAG = "WebGPTApp"
+        private const val TAG = SiteConfig.LOG_TAG
         private const val MAX_MIME_LENGTH = 64
         private val MIME_SHAPE = Regex("[\\w.+-]+/[\\w.+-]+")
 

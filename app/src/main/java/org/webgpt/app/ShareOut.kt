@@ -9,7 +9,7 @@ import androidx.core.content.FileProvider
 import java.io.File
 import java.util.Locale
 
-private const val TAG = "WebGPTApp"
+private const val TAG = SiteConfig.LOG_TAG
 
 /** Opens the system share sheet with [text] and/or [url]. */
 internal fun Activity.shareText(text: String?, url: String?) {

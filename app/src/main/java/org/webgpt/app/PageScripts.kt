@@ -13,7 +13,7 @@ import org.webgpt.app.webview.WebViewUtil
  */
 internal object PageScripts {
 
-    private const val TAG = "WebGPTApp"
+    private const val TAG = SiteConfig.LOG_TAG
 
     /** Patches clipboard, share, blob downloads and window.open for the WebView. */
     private const val PAGE_OVERRIDES = "js/page_overrides.js"

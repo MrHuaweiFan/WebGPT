@@ -24,20 +24,6 @@ object NavigationPolicy {
     }
 
     /**
-     * Hosts of Google's sign-in chain that may load in the app (main frame, iframe
-     * or popup) although they are not in [SiteConfig.ALLOWED_HOSTS].
-     *
-     * Kept apart from [isAllowedHost] on purpose: the bridge gate, the camera and
-     * microphone origin check and popup trust revocation must still treat these
-     * hosts as foreign.
-     *
-     * accounts.youtube.com is Google's session-sync hop. It was confirmed on a
-     * device: it was the host sent to the browser right after 2-step verification,
-     * which opened Google's consent page there (HTTP 400) and left the popup stuck.
-     */
-    private val LOGIN_HOP_HOSTS = listOf("accounts.youtube.com")
-
-    /**
      * Second sign-in hop, confirmed on a device: after accounts.youtube.com,
      * Google sets the session cookie on its country domain, accounts.google.<suffix>.
      * The suffix depends on the account's country, so the hop is checked against
@@ -71,6 +57,19 @@ object NavigationPolicy {
     fun isAllowedHost(host: String?): Boolean =
         host != null && SiteConfig.ALLOWED_HOSTS.any { hostIs(host, it) }
 
+    /** True for the site's own hosts only (not the sign-in hosts of [SiteConfig.ALLOWED_HOSTS]). */
+    fun isSiteHost(host: String?): Boolean =
+        host != null && SiteConfig.SITE_HOSTS.any { hostIs(host, it) }
+
+    /**
+     * True when a popup page has landed back on the site after signing in: the
+     * site's own host (or a subdomain) and not one of its /auth/ pages.
+     */
+    fun isLoginFinishedUrl(url: String): Boolean {
+        val host = parse(url)?.host ?: return false
+        return hostIs(host, SiteConfig.HOME_HOST) && !url.contains("/auth/")
+    }
+
     private fun hostIs(host: String, domain: String): Boolean {
         val h = host.lowercase(Locale.ROOT)
         return h == domain || h.endsWith(".$domain")
@@ -85,14 +84,14 @@ object NavigationPolicy {
     fun isLoginChainUrl(url: String?): Boolean {
         val uri = parse(url) ?: return false
         val host = uri.host ?: return false
-        return uri.isHttps() && (hostIs(host, "accounts.google.com") || hostIs(host, "auth.openai.com"))
+        return uri.isHttps() && SiteConfig.SIGN_IN_CHAIN_HOSTS.any { hostIs(host, it) }
     }
 
-    /** True for an https URL on a [LOGIN_HOP_HOSTS] host or on accounts.google.<country>. */
+    /** True for an https URL on a [SiteConfig.LOGIN_HOP_HOSTS] host or on accounts.google.<country>. */
     private fun isLoginHopUrl(uri: Uri): Boolean {
         val host = uri.host ?: return false
         if (!uri.isHttps()) return false
-        if (LOGIN_HOP_HOSTS.any { hostIs(host, it) }) return true
+        if (SiteConfig.LOGIN_HOP_HOSTS.any { hostIs(host, it) }) return true
         val h = host.lowercase(Locale.ROOT)
         return h.startsWith(GOOGLE_ACCOUNTS_PREFIX) &&
             h.removePrefix(GOOGLE_ACCOUNTS_PREFIX) in GOOGLE_COUNTRY_SUFFIXES
@@ -119,11 +118,7 @@ object NavigationPolicy {
      */
     private fun isMainFrameHostAllowed(uri: Uri, signInContext: Boolean): Boolean {
         val host = uri.host ?: return false
-        if (hostIs(host, "chatgpt.com") || hostIs(host, "openai.com") ||
-            hostIs(host, "accounts.google.com") || isLoginHopUrl(uri)
-        ) {
-            return true
-        }
+        if (SiteConfig.MAIN_FRAME_HOSTS.any { hostIs(host, it) } || isLoginHopUrl(uri)) return true
         return signInContext && isAllowedHost(host)
     }
 

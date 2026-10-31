@@ -77,7 +77,7 @@ internal class BlobTransfers {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
         const val MAX_NAME_CHARS = 256
 
         /** Real use is one or two exports at a time. */

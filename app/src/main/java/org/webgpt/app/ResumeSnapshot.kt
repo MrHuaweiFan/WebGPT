@@ -116,7 +116,7 @@ internal class ResumeSnapshot private constructor(
     }
 
     companion object {
-        private const val TAG = "WebGPTApp"
+        private const val TAG = SiteConfig.LOG_TAG
 
         /** Time the WebView gets to repaint after the window regains focus. */
         const val FADE_OUT_DELAY_MS = 300L

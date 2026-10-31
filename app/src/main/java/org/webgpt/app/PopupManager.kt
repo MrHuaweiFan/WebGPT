@@ -175,15 +175,7 @@ internal class PopupManager(private val activity: MainActivity) {
                 CookieManager.getInstance().flush()
                 view.evaluateJavascript(PageScripts.pageOverrides(activity), null)
                 if (url == null) return
-                val host = try {
-                    Uri.parse(url).host
-                } catch (_: Exception) {
-                    null
-                }
-                if (host != null &&
-                    (host == "chatgpt.com" || host.endsWith(".chatgpt.com")) &&
-                    !url.contains("/auth/")
-                ) {
+                if (NavigationPolicy.isLoginFinishedUrl(url)) {
                     state.loginChain = false // handled here, so no second reload
                     activity.webViewOrNull?.loadSiteUrl(url)
                     remove(popup)
@@ -321,6 +313,6 @@ internal class PopupManager(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
     }
 }

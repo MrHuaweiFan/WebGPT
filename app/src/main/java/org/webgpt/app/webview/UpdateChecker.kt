@@ -1,5 +1,6 @@
 package org.webgpt.app.webview
 
+import org.webgpt.app.SiteConfig
 import android.content.Context
 import android.util.Log
 import org.json.JSONArray
@@ -24,8 +25,8 @@ import kotlin.concurrent.thread
 object UpdateChecker {
 
     private const val TAG = "UpdateChecker"
-    private const val REPO_API = "https://api.github.com/repos/MrHuaweiFan/WebGPT/releases"
-    private const val USER_AGENT = "WebGPT-Android-Updater/6.0"
+    private const val REPO_API = "https://api.github.com/repos/${SiteConfig.RELEASES_REPO}/releases"
+    private const val USER_AGENT = SiteConfig.UPDATER_USER_AGENT
     private const val APK_ASSET = "app-release.apk"
 
     fun interface Callback {

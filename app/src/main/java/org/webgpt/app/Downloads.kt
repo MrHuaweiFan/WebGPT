@@ -392,7 +392,7 @@ internal class Downloads(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
 
         const val BLOB_TIMEOUT_MS = 30_000L
         const val DEDUP_WINDOW_MS = 4_000L

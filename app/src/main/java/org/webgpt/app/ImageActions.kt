@@ -152,14 +152,14 @@ internal class ImageActions(private val activity: MainActivity) {
         val trimmed = url.trim()
         if (trimmed.startsWith("data:", ignoreCase = true)) {
             val extension = FileNames.extensionForMime(FileNames.mimeOfDataUrl(trimmed)) ?: DEFAULT_EXTENSION
-            activity.downloads.handleBlobDownload("chatgpt_image_${System.currentTimeMillis()}.$extension", trimmed)
+            activity.downloads.handleBlobDownload("${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension", trimmed)
             return
         }
         if (trimmed.startsWith("blob:", ignoreCase = true)) {
             val webView = activity.webViewOrNull
             if (webView != null) {
                 // The disposition only carries the name; the extension is fixed from the payload's MIME type.
-                val disposition = "attachment; filename=\"chatgpt_image_${System.currentTimeMillis()}\""
+                val disposition = "attachment; filename=\"${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}\""
                 activity.downloads.downloadBlobUrl(webView, trimmed, disposition, null)
             } else {
                 toast("Failed: page not ready", long = true)
@@ -168,7 +168,7 @@ internal class ImageActions(private val activity: MainActivity) {
         }
         fetchImage("image-download", url) { connection, mime ->
             val extension = FileNames.extensionForMime(mime) ?: DEFAULT_EXTENSION
-            val fileName = "chatgpt_image_${System.currentTimeMillis()}.$extension"
+            val fileName = "${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension"
             var legacyFile: File? = null
             connection.inputStream.use { input ->
                 val target = openTarget(fileName, mime)
@@ -287,7 +287,7 @@ internal class ImageActions(private val activity: MainActivity) {
     }
 
     private companion object {
-        const val TAG = "WebGPTApp"
+        const val TAG = SiteConfig.LOG_TAG
 
         const val CONNECT_TIMEOUT_MS = 15_000
         const val READ_TIMEOUT_MS = 60_000

@@ -9,7 +9,7 @@ import java.util.Locale
 /** File-name helpers shared by downloads and shared files. */
 object FileNames {
 
-    private const val TAG = "WebGPTApp"
+    private const val TAG = SiteConfig.LOG_TAG
     /** Generic type used when nothing better is known. */
     const val DEFAULT_MIME = "application/octet-stream"
 
