@@ -1,12 +1,8 @@
 package org.webgpt.app
 
-import android.content.ContentValues
 import android.content.Intent
-import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -17,7 +13,6 @@ import androidx.core.content.FileProvider
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -37,8 +32,7 @@ import kotlin.concurrent.thread
  */
 internal class ImageActions(private val activity: MainActivity) {
 
-    /** Where a saved image is written. [legacyFile] is set below Android 10 only. */
-    private class Target(val stream: OutputStream, val legacyFile: File?)
+    private val folder = DownloadFolder(activity)
 
     fun attachTo(webView: WebView) {
         webView.setOnLongClickListener {
@@ -171,11 +165,11 @@ internal class ImageActions(private val activity: MainActivity) {
             val fileName = "${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension"
             var legacyFile: File? = null
             connection.inputStream.use { input ->
-                val target = openTarget(fileName, mime)
+                val target = folder.open(fileName, mime)
                 legacyFile = target.legacyFile
                 target.stream.use { input.copyTo(it) }
             }
-            scanLegacyFile(legacyFile, mime)
+            folder.scanLegacy(legacyFile, mime)
             toast("Saved to Download/$fileName", long = true)
         }
     }
@@ -244,39 +238,6 @@ internal class ImageActions(private val activity: MainActivity) {
             // Byte-exact image data: no transparent gzip around the file.
             setRequestProperty("Accept-Encoding", "identity")
         }
-    }
-
-    // ---- writing into the Download folder -------------------------------------------------
-
-    /**
-     * Opens an output stream for a new file in the public Download folder: through
-     * MediaStore on Android 10 and later, as a plain file below that.
-     */
-    private fun openTarget(displayName: String, mime: String): Target {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, displayName)
-                put(MediaStore.Downloads.MIME_TYPE, mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-            }
-            val resolver = activity.contentResolver
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val item = resolver.insert(collection, values) ?: throw IOException("Failed to create download entry")
-            val stream = resolver.openOutputStream(item) ?: throw IOException("Failed to open output stream")
-            return Target(stream, null)
-        }
-        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, displayName)
-        return Target(FileOutputStream(file), file)
-    }
-
-    /** Below Android 10 the file bypasses MediaStore, so tell the media scanner about it. */
-    private fun scanLegacyFile(file: File?, mime: String) {
-        if (file == null) return
-        runCatching {
-            MediaScannerConnection.scanFile(activity, arrayOf(file.absolutePath), arrayOf(mime), null)
-        }.onFailure { Log.w(TAG, "MediaScanner failed", it) }
     }
 
     /** Shows a toast from any thread. */

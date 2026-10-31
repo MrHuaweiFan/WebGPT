@@ -1,14 +1,10 @@
 package org.webgpt.app
 
 import android.Manifest
-import android.content.ContentValues
 import android.content.pm.PackageManager
-import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.SystemClock
-import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
@@ -18,9 +14,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
@@ -54,8 +47,7 @@ internal class Downloads(private val activity: MainActivity) {
     /** A blob: download waiting for the page to answer. */
     private class PendingBlob(val filename: String)
 
-    /** Where a download is written. [legacyFile] is set below Android 10 only. */
-    private class Target(val stream: OutputStream, val legacyFile: File?)
+    private val folder = DownloadFolder(activity)
 
     /** Waiting for the storage permission (Android 9 and below). */
     private var pendingDownload: PendingDownload? = null
@@ -217,9 +209,9 @@ internal class Downloads(private val activity: MainActivity) {
         thread(name = "blob-save") {
             try {
                 val bytes = Base64.decode(base64, Base64.DEFAULT)
-                val target = openTarget(fileName, knownMime(mime))
+                val target = folder.open(fileName, knownMime(mime))
                 target.stream.use { it.write(bytes) }
-                scanLegacyFile(target.legacyFile, mime)
+                folder.scanLegacy(target.legacyFile, mime)
                 toast("Saved to Download/$fileName", long = true)
             } catch (e: Exception) {
                 Log.e(TAG, "saving blob failed", e)
@@ -301,12 +293,12 @@ internal class Downloads(private val activity: MainActivity) {
             val displayName = withMimeExtension(name, mime)
             var legacyFile: File? = null
             val total = connection.inputStream.use { input ->
-                val target = openTarget(displayName, knownMime(mime))
+                val target = folder.open(displayName, knownMime(mime))
                 legacyFile = target.legacyFile
                 target.stream.use { input.copyTo(it) }
             }
             Log.i(TAG, "Downloaded $total bytes ($displayName)")
-            scanLegacyFile(legacyFile, mime)
+            folder.scanLegacy(legacyFile, mime)
             toast("Saved to Download/$displayName", long = true)
         } catch (e: Exception) {
             Log.e(TAG, "Download failed", e)
@@ -332,39 +324,6 @@ internal class Downloads(private val activity: MainActivity) {
             // Byte-exact downloads: no transparent gzip around a binary file.
             setRequestProperty("Accept-Encoding", "identity")
         }
-    }
-
-    // ---- writing into the Download folder -------------------------------------------------
-
-    /**
-     * Opens an output stream for a new file in the public Download folder: through
-     * MediaStore on Android 10 and later, as a plain file below that.
-     */
-    private fun openTarget(displayName: String, mime: String?): Target {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, displayName)
-                if (mime != null) put(MediaStore.Downloads.MIME_TYPE, mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-            }
-            val resolver = activity.contentResolver
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val item = resolver.insert(collection, values) ?: throw IOException("Failed to create download entry")
-            val stream = resolver.openOutputStream(item) ?: throw IOException("Failed to open output stream")
-            return Target(stream, null)
-        }
-        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, displayName)
-        return Target(FileOutputStream(file), file)
-    }
-
-    /** Below Android 10 the file bypasses MediaStore, so tell the media scanner about it. */
-    private fun scanLegacyFile(file: File?, mime: String) {
-        if (file == null) return
-        runCatching {
-            MediaScannerConnection.scanFile(activity, arrayOf(file.absolutePath), arrayOf(mime), null)
-        }.onFailure { Log.w(TAG, "MediaScanner failed", it) }
     }
 
     /** [mime] if it names a specific type, null for the generic or an unknown one. */
