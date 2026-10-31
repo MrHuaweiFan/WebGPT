@@ -160,6 +160,10 @@ internal class ImageActions(private val activity: MainActivity) {
             }
             return
         }
+        activity.downloads.withStoragePermission { fetchAndSaveImage(url) }
+    }
+
+    private fun fetchAndSaveImage(url: String) {
         fetchImage("image-download", url) { connection, mime ->
             val extension = FileNames.extensionForMime(mime) ?: DEFAULT_EXTENSION
             val fileName = "${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension"

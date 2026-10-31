@@ -49,8 +49,11 @@ internal class Downloads(private val activity: MainActivity) {
 
     private val folder = DownloadFolder(activity)
 
-    /** Waiting for the storage permission (Android 9 and below). */
-    private var pendingDownload: PendingDownload? = null
+    /**
+     * The save that waits for the storage permission (Android 9 and below). One slot:
+     * it is cleared on every outcome, and a newer request replaces an older one.
+     */
+    private var pendingSave: (() -> Unit)? = null
     private var pendingBlob: PendingBlob? = null
 
     private val saveLock = Any()
@@ -194,7 +197,8 @@ internal class Downloads(private val activity: MainActivity) {
         val baseName = FileNames.sanitize(name?.takeIf { it.isNotEmpty() } ?: "download_${System.currentTimeMillis()}")
         val filename = withMimeExtension(baseName, mime)
         toast("Downloading $filename...")
-        saveBase64(dataUrl.substring(comma + 1), filename, mime)
+        val base64 = dataUrl.substring(comma + 1)
+        withStoragePermission { saveBase64(base64, filename, mime) }
     }
 
     private fun isRecentDuplicate(length: Int): Boolean = synchronized(saveLock) {
@@ -222,23 +226,8 @@ internal class Downloads(private val activity: MainActivity) {
 
     // ---- http(s) downloads --------------------------------------------------------------
 
-    private fun startDownload(download: PendingDownload) {
+    private fun startDownload(download: PendingDownload) = withStoragePermission {
         val fileName = FileNames.fromDownload(download.url, download.contentDisposition, download.mimeType)
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-            ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            // Keep the download and re-issue it once the user answers the prompt.
-            pendingDownload = download
-            ActivityCompat.requestPermissions(
-                activity,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                RequestCodes.STORAGE_FOR_DOWNLOAD,
-            )
-            return
-        }
-
         toast("Downloading: $fileName")
         val cookies = CookieManager.getInstance().getCookie(download.url)
         thread(name = "download") {
@@ -246,12 +235,34 @@ internal class Downloads(private val activity: MainActivity) {
         }
     }
 
+    /**
+     * Runs [action] once the app may write into the Download folder. From Android 10
+     * the folder needs no permission. On Android 9 and below the action waits for the
+     * user's answer to the prompt: it runs on yes, and a denial shows a toast instead.
+     * Call it on the UI thread, before any file is touched.
+     */
+    fun withStoragePermission(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q ||
+            ContextCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            action()
+            return
+        }
+        pendingSave = action
+        ActivityCompat.requestPermissions(
+            activity,
+            arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+            RequestCodes.STORAGE_FOR_DOWNLOAD,
+        )
+    }
+
     fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
         if (requestCode != RequestCodes.STORAGE_FOR_DOWNLOAD) return
-        val download = pendingDownload ?: return
-        pendingDownload = null
+        val save = pendingSave ?: return
+        pendingSave = null
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startDownload(download)
+            save()
         } else {
             toast("Download cancelled — storage permission was denied", long = true)
         }
