@@ -338,7 +338,8 @@ flow.
   data-URL length within 4000 ms is dropped. Otherwise the app fetches the `blob:` inside the page
   (`blobFetchScript`: `fetch`, then `FileReader.readAsDataURL`, then `onBlobResult`), shows
   "Downloading...", and gives up after 30000 ms with the toast "Download did not complete. Hold down
-  on the image to open the share & download menu."
+  on the image to open the share & download menu." (The image menu passes `announceStart = false`,
+  which skips "Downloading..." and "Downloading <name>...".)
 - **Plain downloads.** http(s) downloads go through a native fetch that carries the WebView's
   cookies, its user agent and the Referer of Site constants; `data:` URLs are saved directly. Below
   Android 10 every save, including blob exports and images, first asks for the storage permission and
@@ -346,7 +347,9 @@ flow.
 - **Images.** The long-press menu (Share image, Download image) is generic. Its ChatGPT parts are the
   Referer and the file name `chatgpt_image_<millis>.<extension>`. Images that exist only inside the
   page (`blob:`) are saved through the blob path; inline `data:` images are saved and shared
-  directly.
+  directly. The menu shows "Downloading image..." and the save ends with "Saved to
+  Download/<name>"; the blob path's own start toasts are suppressed there, so the user sees exactly
+  those two.
 
 ### Loading, keyboard and viewport
 
