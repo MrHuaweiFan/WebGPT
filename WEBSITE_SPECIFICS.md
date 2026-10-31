@@ -345,8 +345,9 @@ flow.
   continues after the answer (`Downloads.withStoragePermission`).
 - **Images.** The long-press menu (Share image, Download image) is generic. Its ChatGPT parts are the
   Referer and the file name `chatgpt_image_<millis>.<extension>`. Images that exist only inside the
-  page (`blob:`) are saved through the blob path; inline `data:` images are saved and shared
-  directly.
+  page (`blob:`) are saved through the blob path and shared by having the page read the blob
+  (`fetch`, then `FileReader.readAsDataURL`) and call the bridge's `shareFile`, which is not
+  host-gated (see the bridge gate); inline `data:` images are saved and shared directly.
 
 ### Loading, keyboard and viewport
 

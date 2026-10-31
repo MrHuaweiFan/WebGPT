@@ -18,14 +18,16 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 import kotlin.concurrent.thread
+import org.json.JSONObject
 
 /**
  * Long-press menu for images in the WebView.
  *
  * Holding down on an image opens a dialog with two actions: share the image
- * through the system chooser, or save it into the public Download folder. Both
- * fetch the image natively with the WebView's cookies, because the URL usually
- * needs the logged-in session.
+ * through the system chooser, or save it into the public Download folder. http(s)
+ * images are fetched natively with the WebView's cookies, because the URL usually
+ * needs the logged-in session. data: images are decoded in place, and blob: images
+ * are read by the page and handed over through the bridge.
  *
  * Long-press and dialog callbacks run on the UI thread. Network and disk work
  * runs on a worker thread, and toasts and the chooser are posted back to the UI thread.
@@ -77,8 +79,7 @@ internal class ImageActions(private val activity: MainActivity) {
             return
         }
         if (trimmed.startsWith("blob:", ignoreCase = true)) {
-            // A blob: URL only exists inside the page, so there is nothing to fetch natively.
-            toast("This image cannot be shared directly. Use Download image instead.", long = true)
+            shareBlobImage(trimmed)
             return
         }
         fetchImage("image-share", url) { connection, mime ->
@@ -120,6 +121,51 @@ internal class ImageActions(private val activity: MainActivity) {
                 toast("Failed: ${e.message}", long = true)
             }
         }
+    }
+
+    /**
+     * A blob: URL only exists inside the page, so the page reads it and hands the bytes back as a
+     * data URL through the bridge's existing `shareFile`, which writes the cache file and opens the
+     * chooser (`Activity.shareFile` in ShareOut.kt). Conversation images in ChatGPT are blob: URLs.
+     * The bridge call has no failure callback: if the page cannot read the blob, nothing more
+     * happens after the "Loading image to share..." toast.
+     */
+    private fun shareBlobImage(blobUrl: String) {
+        val webView = activity.webViewOrNull
+        if (webView == null) {
+            toast("Failed: page not ready", long = true)
+            return
+        }
+        webView.evaluateJavascript(blobShareScript(blobUrl), null)
+    }
+
+    private fun blobShareScript(blobUrl: String): String {
+        val bridge = WebAppBridge.NAME
+        return """
+            (function () {
+              try {
+                fetch(${JSONObject.quote(blobUrl)})
+                  .then(function (r) { return r.blob(); })
+                  .then(function (b) {
+                    var fr = new FileReader();
+                    fr.onloadend = function () {
+                      try {
+                        if (window.$bridge && $bridge.shareFile) {
+                          $bridge.shareFile(
+                            '',
+                            String(fr.result),
+                            ${JSONObject.quote(SiteConfig.IMAGE_FILE_PREFIX)} + Date.now(),
+                            String((b && b.type) || '')
+                          );
+                        }
+                      } catch (e) {}
+                    };
+                    fr.readAsDataURL(b);
+                  })
+                  .catch(function () {});
+              } catch (e) {}
+            })();
+        """.trimIndent()
     }
 
     private fun shareFile(file: File, mime: String) {
