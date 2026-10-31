@@ -65,6 +65,9 @@ class ShareHandler(private val activity: MainActivity) {
     /** Handles an incoming ACTION_SEND or ACTION_PROCESS_TEXT intent. */
     fun handleShareIntent(intent: Intent?) {
         val action = intent?.action ?: return
+        // A launcher tap (ACTION_MAIN) is not a share. Arming the focus-guard bypass for it
+        // would let the keyboard open by itself in an existing chat.
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_PROCESS_TEXT) return
         Log.i(TAG, "handleShareIntent: action=$action, type=${intent.type}")
         markShareActive()
 
