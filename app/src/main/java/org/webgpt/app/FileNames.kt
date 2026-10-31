@@ -25,7 +25,7 @@ object FileNames {
 
     /** Plain form: filename="x.pdf" (quotes optional, trailing parameters allowed). */
     private val DISPOSITION_PLAIN = Regex(
-        "filename=\\s*[\"']?([^\"';]+)[\"']?",
+        "filename=\\s*(?:UTF-8'')?\"?([^\";]+)\"?",
         RegexOption.IGNORE_CASE,
     )
 
