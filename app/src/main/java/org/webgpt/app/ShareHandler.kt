@@ -62,6 +62,23 @@ class ShareHandler(private val activity: MainActivity) {
      */
     @Volatile var lastFileInjectionAt = 0L
 
+    /**
+     * Forgets everything a share left pending: the manual-attach Uri, the queued
+     * pipelines and the base64 payload (up to about 67 MB of text for a 50 MiB file).
+     * Runs when the activity is destroyed and when the attach window is seen expired.
+     * onStop clears only the Uri, so a quick switch away and back during a cold-start
+     * share still attaches.
+     */
+    fun clearPending() {
+        pendingShareFileUri = null
+        pendingShareReceivedAt = 0L
+        pendingAutoAttach = false
+        pendingAutoFocusText = false
+        pendingFileB64 = null
+        pendingFileName = null
+        pendingFileMime = null
+    }
+
     /** Handles an incoming ACTION_SEND or ACTION_PROCESS_TEXT intent. */
     fun handleShareIntent(intent: Intent?) {
         val action = intent?.action ?: return

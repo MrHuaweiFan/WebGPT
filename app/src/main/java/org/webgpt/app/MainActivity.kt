@@ -507,7 +507,7 @@ class MainActivity : Activity() {
             }
         }
         fileChooser.release()
-        share.pendingShareFileUri = null
+        share.clearPending()
         super.onDestroy()
     }
 

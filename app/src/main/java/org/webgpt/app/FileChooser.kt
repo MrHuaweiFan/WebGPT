@@ -65,7 +65,7 @@ internal class FileChooser(private val activity: MainActivity) {
             // The transaction is over. Drop the file so it can never hijack this or a later
             // picker, and fall through to the system chooser so the user can still pick manually.
             Log.i(TAG, "pending shared file expired (attach window closed)")
-            share.pendingShareFileUri = null
+            share.clearPending()
         }
         val file = share.pendingShareFileUri ?: return false
 
