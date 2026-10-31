@@ -1,5 +1,6 @@
 package org.webgpt.app
 
+import androidx.appcompat.app.AlertDialog
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -24,7 +25,13 @@ import org.webgpt.app.webview.CrashTracker
  */
 internal class WebClients(private val activity: MainActivity) {
 
-    private var offlineDialogShowing = false
+    private var offlineDialog: AlertDialog? = null
+
+    /** Dismisses the offline dialog if it is up (the activity is being destroyed). */
+    fun dismissOfflineDialog() {
+        offlineDialog?.dismiss()
+        offlineDialog = null
+    }
 
     /** Installs both clients on [webView] (the initial instance or the one rebuilt after a renderer crash). */
     fun attachTo(webView: WebView) {
@@ -176,16 +183,17 @@ internal class WebClients(private val activity: MainActivity) {
     /** Offline dialog with retry, shown for main-frame load failures. */
     private fun showOfflineDialog() {
         activity.runOnUiThread {
-            if (activity.isFinishing || activity.isDestroyed || offlineDialogShowing) return@runOnUiThread
-            offlineDialogShowing = true
+            if (activity.isFinishing || activity.isDestroyed || offlineDialog != null) return@runOnUiThread
             val loadingScreen = activity.loadingScreen
             loadingScreen.overlay.visibility = android.view.View.GONE
-            MaterialAlertDialogBuilder(activity)
+            // The overlay is hidden, so its infinite animators would only tick under the dialog.
+            loadingScreen.stopLogoAnimation()
+            offlineDialog = MaterialAlertDialogBuilder(activity)
                 .setTitle("Connection problem")
                 .setMessage("Couldn't load ${SiteConfig.HOME_HOST}. Check your internet connection and try again.")
                 .setCancelable(false)
                 .setPositiveButton("Retry") { _, _ ->
-                    offlineDialogShowing = false
+                    offlineDialog = null
                     activity.initialLoadComplete = false
                     // The overlay was hidden while the dialog was up: restart
                     // the logo animation and re-sync the progress bar.
@@ -195,7 +203,7 @@ internal class WebClients(private val activity: MainActivity) {
                     activity.webView.loadSiteUrl(SiteConfig.HOME_URL)
                 }
                 .setNegativeButton("Close app") { _, _ ->
-                    offlineDialogShowing = false
+                    offlineDialog = null
                     activity.finishAffinity()
                 }
                 .show()

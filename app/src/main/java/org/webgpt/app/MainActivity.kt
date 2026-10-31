@@ -498,6 +498,7 @@ class MainActivity : Activity() {
         // (swipe-away) from counting toward the "pick another WebView" bounce.
         CrashTracker.reset()
         popups.destroyAll()
+        webClients.dismissOfflineDialog()
         // Not initialized when onCreate bailed out early (share relay, pre-launch checks).
         if (::loadingScreen.isInitialized) loadingScreen.stopLogoAnimation()
         if (::webView.isInitialized) {
