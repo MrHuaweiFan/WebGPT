@@ -219,8 +219,12 @@ class MainActivity : Activity() {
     private fun restoreWebViewState(saved: Bundle): Boolean = try {
         val history = webView.restoreState(saved)
         val url = history?.currentItem?.url
-        if (history != null && history.size > 0 && url != null) {
-            if (url.startsWith("http://") || url.startsWith("https://")) webView.loadSiteUrl(url)
+        // A blob:, about: or data: current entry cannot be loaded again, so it does not
+        // count as restored: the caller then opens the home page instead of a blank one.
+        if (history != null && history.size > 0 && url != null &&
+            (url.startsWith("http://") || url.startsWith("https://"))
+        ) {
+            webView.loadSiteUrl(url)
             true
         } else {
             false
