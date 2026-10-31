@@ -7,11 +7,12 @@
 **Privacy-focused ChatGPT WebView wrapper, built for GMS-free devices.**
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Material Design 3](https://img.shields.io/badge/Material%20Design-3-6750A4?style=flat&logo=materialdesign&logoColor=white)](https://m3.material.io/) 
 [![Android 5.0+](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)](#requirements)
+[![F-Droid release](https://img.shields.io/f-droid/v/org.webgpt.app?logo=f-droid&label=f-droid%20release&logoColor=white)](https://f-droid.org/packages/org.webgpt.app/)
 [![Latest release](https://img.shields.io/github/v/release/MrHuaweiFan/WebGPT?logo=github&label=release)](https://github.com/MrHuaweiFan/WebGPT/releases/latest)
 [![Last Commit](https://img.shields.io/github/last-commit/MrHuaweiFan/WebGPT?logo=github&label=last%20commit)](https://github.com/MrHuaweiFan/WebGPT)
 [![GitHub downloads](https://img.shields.io/github/downloads/MrHuaweiFan/WebGPT/total?logo=github&label=downloads)](https://github.com/MrHuaweiFan/WebGPT/releases)
-[![Material Design 3](https://img.shields.io/badge/Material%20Design-3-6750A4?style=flat&logo=materialdesign&logoColor=white)](https://m3.material.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 <a href="https://f-droid.org/packages/org.webgpt.app/"><img src="https://f-droid.org/badge/get-it-on.png" height="80" alt="Get it on F-Droid"></a>
