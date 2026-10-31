@@ -31,7 +31,7 @@ between the app and its scripts) and in the preference file name `webgpt_prefs`.
 
 | Constant | Value | Why |
 |---|---|---|
-| `SiteConfig.HOME_URL` | `https://chatgpt.com/` | First load, offline retry, renderer recovery and the reload after a sign-in popup. |
+| `SiteConfig.HOME_URL` | `https://chatgpt.com/` | First load, offline retry, the reload after a sign-in popup, and renderer recovery when no chat page is known. |
 | `SiteConfig.USER_AGENT` | `Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36` | The default WebView string contains `wv`, and the site treats that as an embedded browser. Popups copy the main WebView's user agent; the native download fallback uses it when the download listener gives none. |
 | `SiteConfig.EXTRA_HEADERS` | `X-Requested-With` with an empty value, on every main-frame load (`loadSiteUrl`) | Suppresses the default header, which carries the app's package name. chatgpt.com reads it and shows an install-the-app banner. |
 | Third-party cookies | off on the main WebView, on in every popup | Cross-site trackers inside chatgpt.com cannot follow the user. The sign-in chain needs them, so popups keep them; popups share the main cookie jar. |
@@ -375,7 +375,9 @@ flow.
   the composer stays under the keyboard and the page's `visualViewport` logic never sees a resize.
   The app opens the keyboard itself only for shares; the focus guard keeps it closed when an existing
   chat opens.
-- **A lost renderer** resets `initialLoadComplete`, recreates the main WebView and loads the home URL.
+- **A lost renderer** resets `initialLoadComplete`, recreates the main WebView and reloads the last site page
+  it showed (tracked in `onPageStarted` and `doUpdateVisitedHistory`, so SPA chat URLs count; sign-in pages
+  are never remembered). If that reload loses the renderer again before a page finishes, it loads the home URL.
 
 ### Camera and microphone
 

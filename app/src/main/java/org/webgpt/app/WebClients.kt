@@ -27,6 +27,20 @@ internal class WebClients(private val activity: MainActivity) {
 
     private var offlineDialog: AlertDialog? = null
 
+    /**
+     * The last page of the site (not a sign-in page) the main WebView showed, kept so a
+     * dead renderer can reopen the chat the user had instead of the home page. Written
+     * on the UI thread only.
+     */
+    private var lastSiteUrl: String? = null
+
+    /** True from a recovery reload until a page finishes, so a page that keeps killing the renderer cannot loop. */
+    private var recoveryReloadPending = false
+
+    private fun rememberSiteUrl(url: String?) {
+        if (url != null && NavigationPolicy.isLoginFinishedUrl(url)) lastSiteUrl = url
+    }
+
     /** Dismisses the offline dialog if it is up (the activity is being destroyed). */
     fun dismissOfflineDialog() {
         offlineDialog?.dismiss()
@@ -127,7 +141,12 @@ internal class WebClients(private val activity: MainActivity) {
                 // The overlay is not shown here. onPageStarted shows it after
                 // 200 ms, so a reload from cache never flashes the loading screen.
                 activity.recreateMainWebView()
-                activity.webView.loadSiteUrl(SiteConfig.HOME_URL)
+                // Reopen the chat that was showing. If the recovery reload itself lost the
+                // renderer before finishing, the page is the likely cause: go home instead.
+                val target = lastSiteUrl.takeUnless { recoveryReloadPending } ?: SiteConfig.HOME_URL
+                if (target == SiteConfig.HOME_URL) lastSiteUrl = null
+                recoveryReloadPending = target != SiteConfig.HOME_URL
+                activity.webView.loadSiteUrl(target)
             }
             // Popups have their own client in PopupManager.
             return true
@@ -135,6 +154,7 @@ internal class WebClients(private val activity: MainActivity) {
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             super.onPageStarted(view, url, favicon)
+            rememberSiteUrl(url)
             // Only the initial load shows the overlay. SPA navigations fire
             // onPageStarted too and must not bring it back.
             val loadingScreen = activity.loadingScreen
@@ -153,8 +173,15 @@ internal class WebClients(private val activity: MainActivity) {
             }, OVERLAY_SHOW_DELAY_MS)
         }
 
+        override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+            super.doUpdateVisitedHistory(view, url, isReload)
+            // The chat URL changes by history.pushState, which fires this and not onPageStarted.
+            rememberSiteUrl(url)
+        }
+
         override fun onPageFinished(view: WebView, url: String?) {
             super.onPageFinished(view, url)
+            recoveryReloadPending = false
             // A finished load marks this launch as non-crashing.
             CrashTracker.reset()
             CookieManager.getInstance().flush()
