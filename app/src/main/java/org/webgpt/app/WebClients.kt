@@ -118,9 +118,9 @@ internal class WebClients(private val activity: MainActivity) {
             }
         }
 
-        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail?): Boolean {
             val isMain = view === activity.webViewOrNull
-            val reason = if (detail.didCrash()) "CRASH" else "OOM_KILL"
+            val reason = if (detail?.didCrash() == true) "CRASH" else "OOM_KILL"
             Log.e(TAG, "WebView renderer gone; recreating WebView (main=$isMain, reason=$reason)")
             if (isMain) {
                 activity.initialLoadComplete = false

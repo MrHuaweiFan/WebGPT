@@ -168,7 +168,7 @@ internal class PopupManager(private val activity: MainActivity) {
                 attachOnce(popup)
             }
 
-            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail?): Boolean {
                 remove(popup)
                 reloadMainAfterLogin(state)
                 return true
