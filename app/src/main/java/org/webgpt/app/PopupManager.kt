@@ -90,9 +90,13 @@ internal class PopupManager(private val activity: MainActivity) {
         return true
     }
 
-    /** Closes the newest popup. Returns false if there is none. */
+    /**
+     * Closes the newest popup that is on screen. Returns false if there is none.
+     * A popup that has not been attached yet (or never will be) is invisible, so Back
+     * must not spend a press on it.
+     */
     fun closeTop(): Boolean {
-        val top = views.lastOrNull() ?: return false
+        val top = views.lastOrNull { it.parent != null } ?: return false
         remove(top)
         return true
     }
