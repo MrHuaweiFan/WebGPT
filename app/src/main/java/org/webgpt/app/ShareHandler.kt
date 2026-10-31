@@ -201,7 +201,7 @@ class ShareHandler(private val activity: MainActivity) {
             val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
             if (!ext.isNullOrEmpty()) name += ".$ext"
         }
-        val out = File(activity.cacheDir, name)
+        val out = File(CacheCleaner.sharedFilesDir(activity), name)
         val input = activity.contentResolver.openInputStream(uri) ?: return null
         input.use { source -> FileOutputStream(out).use { source.copyTo(it) } }
         return out

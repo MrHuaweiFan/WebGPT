@@ -1,6 +1,5 @@
 package org.webgpt.app
 
-import androidx.appcompat.app.AlertDialog
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -16,6 +15,7 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.webgpt.app.webview.CrashTracker
 
