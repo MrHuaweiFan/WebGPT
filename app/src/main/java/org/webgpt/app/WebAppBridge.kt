@@ -117,15 +117,14 @@ internal class WebAppBridge(
     /** One piece of a large export. The last piece assembles and saves the file. */
     @JavascriptInterface
     fun onBlobChunk(name: String?, mime: String?, index: Int, total: Int, data: String?) {
-        // Runs entirely on the UI thread (posts keep their order), so the gate and the
-        // chunk buffer are never touched from the JavaBridge thread.
-        activity.runOnUiThread {
-            if (!hostAllowed()) return@runOnUiThread
-            val payload = activity.downloads.blobTransfers.append(name, index, total, data)
-                ?: return@runOnUiThread
-            val dataUrl = "data:${safeMime(mime)};base64,$payload"
-            activity.downloads.handleBlobDownload(name.orEmpty(), dataUrl)
-        }
+        // Pieces are collected on the JavaBridge thread: calls from one page arrive in order,
+        // and BlobTransfers locks internally and caps count, size and idle time. A 100 MB export
+        // would otherwise post hundreds of tasks to the UI thread. Only the finished payload
+        // crosses to the UI thread, where the host gate runs once, before anything is saved.
+        val payload = activity.downloads.blobTransfers.append(name, index, total, data) ?: return
+        val dataUrl = "data:${safeMime(mime)};base64,$payload"
+        val fileName = name.orEmpty()
+        activity.runOnUiThread { if (hostAllowed()) activity.downloads.handleBlobDownload(fileName, dataUrl) }
     }
 
     /** Result of the file-drop injection: clears the manual fallback or prompts the user. */
