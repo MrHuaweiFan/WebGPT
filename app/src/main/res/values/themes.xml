@@ -67,7 +67,7 @@
         pixel-identical in the background.
         ⚠ FORKS: this MUST point at the DERIVATIVE'S OWN loading-screen
         background color token — every app in the family uses a different
-        palette. See WEBSITE_SPECIFICS.md §3 "Launch splash".
+        palette. See WEBSITE_SPECIFICS.md, "Launch splash".
       - windowSplashScreenAnimatedIcon = @drawable/splash_icon_none: a fully
         transparent shape, i.e. NO icon. The Android 12+ system splash
         renders this attribute inside its own fixed-size icon container

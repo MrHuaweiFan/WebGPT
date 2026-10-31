@@ -1,92 +1,87 @@
+<div align="center">
+
+<img src="fastlane/metadata/android/en-US/images/icon.png" width="128" alt="WebGPT logo">
+
 # WebGPT
 
-A feature-rich Android WebView wrapper that loads the ChatGPT website (`chatgpt.com`), designed for devices without Google Mobile Services (GMS). Built with **GLM agent mode through Z.AI** and **Claude Code** (v6.29+)
+**Privacy-focused ChatGPT WebView wrapper, built for GMS-free devices.**
 
-> **WebGPT is an independent, unofficial client.** It is not affiliated with, endorsed by, or sponsored by OpenAI. The WebGPT name, icon, and source code are this project's own — they do not use the ChatGPT trademark or logo. WebGPT simply loads the public `chatgpt.com` website inside an Android WebView, the same way any general-purpose browser would.
+[![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Material Design 3](https://img.shields.io/badge/Material%20Design-3-6750A4?style=flat&logo=materialdesign&logoColor=white)](https://m3.material.io/) 
+[![Android 5.0+](https://img.shields.io/badge/Android-5.0%2B-3DDC84?logo=android&logoColor=white)](#requirements)
+[![F-Droid release](https://img.shields.io/f-droid/v/org.webgpt.app?logo=f-droid&label=f-droid%20release&logoColor=white)](https://f-droid.org/packages/org.webgpt.app/)
+[![Latest release](https://img.shields.io/github/v/release/MrHuaweiFan/WebGPT?logo=github&label=release)](https://github.com/MrHuaweiFan/WebGPT/releases/latest)
+[![Last Commit](https://img.shields.io/github/last-commit/MrHuaweiFan/WebGPT?logo=github&label=last%20commit)](https://github.com/MrHuaweiFan/WebGPT)
+[![GitHub downloads](https://img.shields.io/github/downloads/MrHuaweiFan/WebGPT/total?logo=github&label=downloads)](https://github.com/MrHuaweiFan/WebGPT/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Inspiration
+<a href="https://f-droid.org/packages/org.webgpt.app/"><img src="https://f-droid.org/badge/get-it-on.png" height="80" alt="Get it on F-Droid"></a>
+<a href="https://github.com/MrHuaweiFan/WebGPT/releases/latest"><img src="./fastlane/metadata/android/en-US/images/badge_github.png" height="80" alt="Get it on GitHub"></a>
 
-- Based on the [webapp](https://github.com/wskang12138/webapp) template by `wskang12138`
-- Inspired by [duckAssist](https://github.com/diekaiju/duckAssist) — The idea of making this app came to me while trying duckAssist
+</div>
 
-## App family & porting
+> **WebGPT is an independent, unofficial client.** It is not affiliated with, endorsed by, or sponsored by OpenAI. The WebGPT name, icon and source code are this project's own and do not use the ChatGPT trademark or logo. WebGPT loads the public `chatgpt.com` website inside an Android WebView, the same way any general-purpose browser would.
 
-WebGPT is the **base app** of a family of WebView wrappers — the other apps in
-the family wrap other websites and are branched from this codebase. Every app
-in the family ships a **`WEBSITE_SPECIFICS.md`** in the repository root:
+## Screenshots
 
-- In WebGPT it documents everything wired to `chatgpt.com` (selectors, hosts,
-  injected scripts, timings, workarounds) plus a full porting guide.
-- In each derivative app it documents everything that app changed relative to
-  WebGPT, using the same structure.
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="30%" alt="WebGPT screenshot 1">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.png" width="30%" alt="WebGPT screenshot 2">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" width="30%" alt="WebGPT screenshot 3">
+</p>
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.png" width="30%" alt="WebGPT screenshot 4">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.png" width="30%" alt="WebGPT screenshot 5">
+</p>
 
-That file is what makes it possible to port new features from a newer WebGPT
-into a derivative app without breaking the
-site-specific layer. If you fork this project for another website, read
-`WEBSITE_SPECIFICS.md` first — it tells you exactly what to change and what
-to leave alone.
+## Why WebGPT?
+
+WebGPT is not a simple WebView wrapper, it offers many extra enhancements for a better mobile experience, such as a flexible WebView switcher, seamless Android sharing integration, and improved handling of downloads and external links.
 
 ## Features
 
-### Core
-- **WebView** wrapping `chatgpt.com` with session cookie persistence
-- **Clean User-Agent** — removes Android WebView detection markers (`X-Requested-With` header override)
-- **Material 3 design** — blue theme palette (from Material Theme Builder), dark mode support, Material Components throughout
-- **Pure black dark mode** — status bar and background are `#000000` in dark mode (not the default off-black), `#FCFCFC` in light mode; the status and navigation bars follow live system dark/light switches without restarting the app
-- **Privacy: third-party cookies blocked** on the main page (cross-site trackers inside chatgpt.com cannot follow you); OAuth popups keep them so Google sign-in still works
-
-### WebView Switcher (the headline feature)
-- **In-app WebView provider picker** — switch the WebView implementation at runtime without affecting any other app on the device. Reverse-engineered from Better xCloud.
-- **How it works** — swaps the cached `IBinder` for `"webviewupdate"` in `ServiceManager.sCache` with a `java.lang.reflect.Proxy` that intercepts `IWebViewUpdateService.waitForAndGetProvider()` and overwrites the returned `packageInfo` field with the user's chosen `PackageInfo`
-- **13 supported providers** — Android System WebView, Chrome (stable/beta/dev/canary), Thorium, Mulch, Huawei WebView, Amazon WebView
-- **Built-in downloader tab** — links to Google Play, Thorium (GitHub), and Mulch (GitLab) repository pages
-- **Crash recovery** — after 3 consecutive crashes, automatically redirects to the WebView picker so the user can select a different provider
-- **Developer mode flags** — optional "Optimize WebView performance" toggle installs a synthetic `DeveloperModeContentProvider` that enables `ignore-gpu-blocklist` and `WebViewSurfaceControl` on the chosen WebView
-
-### Loading Screen
-- Spinning WebGPT logo with fade animation (property animators on a hardware layer — stays smooth even while the page is loading)
-- Theme-aware: black logo on white background (light mode), white logo on black background (dark mode)
-- No white flash in dark mode (short 500ms overlay settle before fade-out)
-- **Smooth fade-out** — overlay fades from opaque to transparent over 400ms (accelerate interpolator) instead of abruptly disappearing
-- **Uniform launch splash** — the Android 12+ system splash screen is a plain frame of the loading screen's background color (light and dark mode, no icon): it crossfades into the loading screen over 300ms, so every device gets the same flash-free launch instead of OEM launch animations. On Android < 12 the launch window is pinned to the same colors
-- **Optional page-progress bar** — a Material 3 `LinearProgressIndicator` (4dp, rounded ends, gap + stop indicator per the M3 spec) at the top of the loading screen. Its progress is honest: chatgpt.com reports "fully loaded" long before the chat UI is actually ready, so the bar caps at 90% and only completes when the app's real page-ready detection (the same system that dismisses the loading screen) fires. Off by default; enable it in Settings → Interface → "Show page loading progress"
-
-### Hidden Settings (Material 3 UI)
-- Accessible via the gear icon in Android's "App info" screen
-- **First-launch welcome dialog** — tells new users about the hidden settings menu and known limitations. Shows once per install, dismissed with "Understood"
-- **Optimize WebView performance toggle** — enables GPU blocklist bypass + surface control
-- **Show page loading progress toggle** — off by default; adds a Material 3 progress bar to the loading screen (takes effect on the next page load, no restart)
-- **Check for updates button** — checks GitHub releases for newer versions. When an update is found, opens the release download page in the user's default browser. The browser handles the APK download and install — no in-app `PackageInstaller` (which crashed on some OEM ROMs)
-- **Google sign-in troubleshooting tips**
-
-### File Handling
-- **Downloads** — saves to the public `Download/` folder with original filename (MediaStore API on Android 10+)
-- **Blob URL downloads** — blob URLs are captured while still alive (the site revokes them immediately after triggering a download, which is why naive WebView downloads fail) and saved with the correct extension — works for generated files, PDF/Word/Markdown exports, etc.
-- **File upload** — multi-select file picker + camera capture (full resolution via FileProvider); camera permission is requested on demand
-- **Image context menu** — long-press any image → Material 3 AlertDialog (matching the WebView Manager style) with "Share image" and "Download image" buttons
-- **External links open flash-free** — links to other sites go to your default browser; the popup WebView stays invisible unless the link actually opens in-app, so there is no black/white flash between the tap and the browser
+### Main Features
+- **Smooth loading screen.** A spinning logo that fades out with no white flash. An optional page-progress bar can be turned on in Settings.
+- **Privacy.** Third-party cookies are blocked on the main page. Sign-in popups keep them, so Google sign-in still works. Camera and microphone permissions are requested only when the site asks for them.
+- **Links open where they should.** Links to other sites open in your default browser.
+- **Downloads.** Generated files, PDFs, Word documents and Markdown exports to your `Download` folder.
+- **Long-press an image** to share it or save it.
+- **Settings menu.** There is a hidden settings menu under `Android Settings` → `Apps` → `WebGPT` and tap the gear icon. There you can pick a WebView, show the page-progress bar and check for updates.
 
 ### Sharing
-- **Share to WebGPT** — receive shared text/files from any app (`ACTION_SEND` intent-filter, labeled "Send to WebGPT"). Text is copied to the clipboard; files are attached to the composer automatically
-- **Ask WebGPT** — appears in Android's text selection menu (`ACTION_PROCESS_TEXT`), copies text to clipboard for pasting
-- **In-app Share button** — `navigator.share()` is bridged to Android's real share sheet: text/URL shares open the system share dialog, image/file shares hand the file to any app (Telegram, Drive, ...)
-- **Copy button** — `navigator.share({ text })` with text only delegates to the clipboard (fixes the site's Copy button on WebViews that don't support the async Clipboard API)
-- **External links** — X, Reddit, LinkedIn etc. open in the system browser
+- **Share to WebGPT** from any app. Shared text is copied to the clipboard and shared files are attached to the chat for you.
+- **Ask WebGPT** appears in the text-selection menu and copies the selected text to the clipboard.
 
-### Camera & Microphone
-- Camera/microphone permissions are requested **on demand** — when the wrapped site asks for them, the app requests the matching Android permission and grants only what the user approved (allowlisted origins only)
+### WebView switcher
+- Choose between 13 WebView providers: Android System WebView, Chrome (stable, beta, dev, canary), Thorium, Mulch, Huawei WebView and Amazon WebView.
+- A built-in downloader tab links to Google Play, Thorium (GitHub) and Mulch (GitLab).
+- If the app crashes 3 times in a row, it sends you to Settings so you can pick another WebView.
+- An optional "Optimize WebView performance" switch can improve speed on some devices.
 
-### Popup WebView
-- Proper popup support for OAuth flows (Google sign-in)
-- Shared cookie jar via `CookieManager`
-- AndroidBridge JS interface injected for native communication
+## Known limitations
 
-### Known limitations
-- **Microphone dictation** — voice input may refuse to start despite permissions. Selecting the alternative WebView could resolve the problem
-- **Google sign-in** — Google can sometimes block OAuth on some WebViews ("browser or app may not be secure").
+- **Voice dictation** may refuse to start even with permissions granted. Switching to another WebView can fix it.
+- **Google sign-in** is sometimes blocked by Google in Android WebViews ("browser or app may not be secure"). Email sign-in works, and trying another WebView can help.
 
-## Tech stack
+## For developers
 
-AGP 8.2.2, Gradle 8.5, JDK 17+, compileSdk 34, minSdk 21, targetSdk 34, Material 1.12.0, androidx.recyclerview 1.3.2, androidx.webkit 1.10.0, androidx.core-splashscreen 1.0.1, R8 enabled.
+| Document | What it covers |
+| --- | --- |
+| [BUILD.md](BUILD.md) | How to build and sign the app |
+| [WEBSITE_SPECIFICS.md](WEBSITE_SPECIFICS.md) | Everything specific to `chatgpt.com`: what went wrong with the site, how WebGPT works around it, and a porting guide |
+| [WEBVIEW_SWITCHER.md](WEBVIEW_SWITCHER.md) | How the in-app WebView switcher works |
 
-WebGPT is free software under the MIT License.
+WebGPT is the base app of a family of WebView wrappers for other websites. Each app in the family has its own `WEBSITE_SPECIFICS.md`. In WebGPT it lists everything tied to `chatgpt.com`. In a derived app it lists what that app changed. If you fork WebGPT for another site, read that file first. It tells you what to change and what to leave alone.
+
+The app is written in Kotlin with Material 3. Tech stack: AGP 8.2.2, Gradle 8.5, JDK 17+, compileSdk 34, minSdk 21, targetSdk 34, Material 1.12.0, androidx.recyclerview 1.3.2, androidx.webkit 1.10.0, androidx.core-splashscreen 1.0.1, R8 enabled.
+
+## Credits
+
+- Based on the [webapp](https://github.com/wskang12138/webapp) template by `wskang12138`.
+- Inspired by [duckAssist](https://github.com/diekaiju/duckAssist). The idea for this app came from trying it.
+- The WebView switcher is reverse-engineered from Better xCloud.
+- Built with **GLM agent mode through Z.AI** and **Claude Code** (v6.29+).
+
+## License
+
+WebGPT is free software under the [MIT License](LICENSE).

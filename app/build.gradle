@@ -1,8 +1,19 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     namespace 'org.webgpt.app'
     compileSdk 34
+
+    // Java and Kotlin must target the same JVM level: with Gradle 8 a mismatch
+    // fails the build. Both are stated on purpose.
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
 
     defaultConfig {
         applicationId "org.webgpt.app"
