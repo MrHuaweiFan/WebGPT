@@ -124,8 +124,26 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
 
-            <!-- ============ SHARE TEXT / FILES INTO WEBGPT ============ -->
+        <!--
+          The share target ("SHARE TEXT / FILES INTO WEBGPT"). It is a transparent
+          trampoline that forwards every share into WebGPT's own task — see
+          ShareRelayActivity. The share filters are here, not on MainActivity, so no
+          MainActivity (and no launch window of it) is ever created in the sender's
+          task. All of them live on this one activity, so the share sheet still lists
+          WebGPT once. Transparent: nothing flashes while it forwards. noHistory:
+          self-destructs the moment it is backgrounded. taskAffinity="": it owns no
+          task of its own and can never spawn one. excludeFromRecents is deliberately
+          NOT set — the relay lives in the SENDER's task, and that flag would hide the
+          sender from Recents.
+        -->
+        <activity
+            android:name=".ShareRelayActivity"
+            android:exported="true"
+            android:theme="@style/ShareRelayTheme"
+            android:noHistory="true"
+            android:taskAffinity="">
 
             <!-- Receive text shares ("Ask WebGPT" appears in the share menu
                  when sharing text from other apps) -->
@@ -149,24 +167,6 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
-
-        <!--
-          Trampoline for TEXT shares that were mis-launched into a foreign
-          (sender's) task — see MainActivity.onCreate and ShareRelayActivity.
-          Transparent: nothing flashes while it forwards the share into
-          WebGPT's own task. noHistory: self-destructs the moment it is
-          backgrounded. taskAffinity="": it owns no task of its own and can
-          never spawn one. excludeFromRecents is deliberately NOT set — the
-          relay lives in the SENDER's task, and that flag would hide the
-          sender from Recents. No intent-filter: only MainActivity starts it,
-          with an explicit in-app intent.
-        -->
-        <activity
-            android:name=".ShareRelayActivity"
-            android:exported="false"
-            android:theme="@style/ShareRelayTheme"
-            android:noHistory="true"
-            android:taskAffinity="" />
 
         <activity
             android:name=".SettingsActivity"
