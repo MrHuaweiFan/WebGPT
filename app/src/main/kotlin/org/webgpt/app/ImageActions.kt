@@ -143,10 +143,16 @@ internal class ImageActions(private val activity: MainActivity) {
     /** Fetches [url] and saves it into the public Download folder. */
     private fun downloadImage(url: String) {
         // data: and blob: images have no network URL. The download pipeline already decodes them.
+        // The menu has already shown "Downloading image...", so the pipeline skips its own start
+        // toasts: the user sees that one and then "Saved to Download/...".
         val trimmed = url.trim()
         if (trimmed.startsWith("data:", ignoreCase = true)) {
             val extension = FileNames.extensionForMime(FileNames.mimeOfDataUrl(trimmed)) ?: DEFAULT_EXTENSION
-            activity.downloads.handleBlobDownload("${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension", trimmed)
+            activity.downloads.handleBlobDownload(
+                "${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}.$extension",
+                trimmed,
+                announceStart = false,
+            )
             return
         }
         if (trimmed.startsWith("blob:", ignoreCase = true)) {
@@ -154,7 +160,7 @@ internal class ImageActions(private val activity: MainActivity) {
             if (webView != null) {
                 // The disposition only carries the name; the extension is fixed from the payload's MIME type.
                 val disposition = "attachment; filename=\"${SiteConfig.IMAGE_FILE_PREFIX}${System.currentTimeMillis()}\""
-                activity.downloads.downloadBlobUrl(webView, trimmed, disposition, null)
+                activity.downloads.downloadBlobUrl(webView, trimmed, disposition, null, announceStart = false)
             } else {
                 toast("Failed: page not ready", long = true)
             }

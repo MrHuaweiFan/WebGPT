@@ -44,8 +44,11 @@ internal class Downloads(private val activity: MainActivity) {
         val mimeType: String?,
     )
 
-    /** A blob: download waiting for the page to answer. */
-    private class PendingBlob(val filename: String)
+    /**
+     * A blob: download waiting for the page to answer. [announceStart] carries the caller's
+     * choice to the answer, which arrives later through [handleBlobResult].
+     */
+    private class PendingBlob(val filename: String, val announceStart: Boolean)
 
     private val folder = DownloadFolder(activity)
 
@@ -104,14 +107,18 @@ internal class Downloads(private val activity: MainActivity) {
      * Reads a blob: URL through in-page JavaScript and receives the bytes as a data
      * URL on the bridge. This still works after the site called revokeObjectURL(),
      * because the injected hook delays the real revocation.
+     *
+     * With [announceStart] false the "Downloading..." toasts are skipped. The image menu
+     * passes false because it has already shown "Downloading image...".
      */
     internal fun downloadBlobUrl(
         webView: WebView,
         blobUrl: String,
         contentDisposition: String?,
         mimeType: String?,
+        announceStart: Boolean = true,
     ) {
-        toast("Downloading...")
+        if (announceStart) toast("Downloading...")
         // A blob: URL carries no file name and the disposition is usually missing.
         // The extension is fixed later from the payload's MIME type.
         val filename = if (!contentDisposition.isNullOrEmpty()) {
@@ -119,7 +126,7 @@ internal class Downloads(private val activity: MainActivity) {
         } else {
             "download_${System.currentTimeMillis()}"
         }
-        val pending = PendingBlob(filename)
+        val pending = PendingBlob(filename, announceStart)
         pendingBlob = pending
         webView.evaluateJavascript(blobFetchScript(blobUrl), null)
         // If the bridge never answers (page navigated away, renderer killed), give up.
@@ -165,7 +172,7 @@ internal class Downloads(private val activity: MainActivity) {
     fun handleBlobResult(dataUrl: String) {
         val pending = pendingBlob ?: return
         pendingBlob = null
-        handleBlobDownload(pending.filename, dataUrl)
+        handleBlobDownload(pending.filename, dataUrl, pending.announceStart)
     }
 
     /** The in-page fetch of the blob failed. */
@@ -179,8 +186,10 @@ internal class Downloads(private val activity: MainActivity) {
      * Saves a payload that arrived as a data URL ("data:mime;base64,...") with a
      * suggested [name]. The extension is corrected from the payload's real MIME
      * type, since exports such as PDF, Word and Markdown often come without one.
+     * With [announceStart] false the "Downloading <name>..." toast is skipped; the final
+     * "Saved to Download/<name>" toast always appears.
      */
-    fun handleBlobDownload(name: String?, dataUrl: String?) {
+    fun handleBlobDownload(name: String?, dataUrl: String?, announceStart: Boolean = true) {
         if (dataUrl == null || !dataUrl.startsWith("data:")) return
         val comma = dataUrl.indexOf(',')
         if (comma < 0) return
@@ -196,7 +205,7 @@ internal class Downloads(private val activity: MainActivity) {
         val mime = FileNames.mimeOfDataUrl(dataUrl)
         val baseName = FileNames.sanitize(name?.takeIf { it.isNotEmpty() } ?: "download_${System.currentTimeMillis()}")
         val filename = withMimeExtension(baseName, mime)
-        toast("Downloading $filename...")
+        if (announceStart) toast("Downloading $filename...")
         val base64 = dataUrl.substring(comma + 1)
         withStoragePermission { saveBase64(base64, filename, mime) }
     }
