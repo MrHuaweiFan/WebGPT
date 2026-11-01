@@ -144,11 +144,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Some OEM share paths launch this singleTask activity inside the SENDER's
-     * task. Detected by "not the root of our task". The share is handed to
-     * [ShareRelayActivity], which forwards it into our own task once it is
-     * resumed (see its documentation for why the order matters).
-     * Shares with a file stream are excluded: a re-launch would drop their URI grants.
+     * Safety net. Shares arrive at [ShareRelayActivity] directly (it holds the share
+     * intent filters), so none should reach this activity inside another task. One
+     * that still does, such as an explicit start or a stale share shortcut, is
+     * detected by "not the root of our task" and handed to the relay, which forwards
+     * it into our own task once it is resumed (see its documentation for why the
+     * order matters).
+     * Shares with a file stream are excluded: the intent wrapped here carries no
+     * URI grant for the relay to forward.
      *
      * @return true if the relay took over and this instance finished.
      */
