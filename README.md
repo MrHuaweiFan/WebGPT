@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="fastlane/metadata/android/en-US/images/icon.png" width="128" alt="WebGPT logo">
+<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" alt="WebGPT logo">
 
 # WebGPT
 
