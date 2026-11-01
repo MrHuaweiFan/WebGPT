@@ -263,13 +263,17 @@ below is what chatgpt.com required to make that work.
 - **Entry points.** `ACTION_SEND` with `text/*` (label "Ask WebGPT") or any other type (label "Send
   to WebGPT"), and `ACTION_PROCESS_TEXT` (label "Ask WebGPT", in the text selection menu). One text
   or one file per share. A share first sets the focus-guard bypass window (6000 ms), so its own
-  `focus()` is not blocked. When a text share arrives in the sender's task (some OEM share paths launch
-  a `singleTask` activity inside the sender's task; file shares are never relayed, because a
-  re-launch would lose their URI grants), `MainActivity` starts `ShareRelayActivity` in
-  the same task and finishes; the relay waits until it is resumed and forwards the share with
-  `FLAG_ACTIVITY_NEW_TASK`. Forwarding straight from `onCreate` left several OEM task managers with a
-  task they never brought to the front (the text was copied and the toast appeared, but WebGPT never
-  opened).
+  `focus()` is not blocked. All three filters belong to `ShareRelayActivity`, a transparent
+  trampoline, not to `MainActivity`: some OEM share paths launch the target inside the sender's
+  task, and a `MainActivity` created there paints its own launch window (pure black in dark mode)
+  over the sender while the share hops on. The relay waits until it is resumed and forwards the
+  share to `MainActivity` with `FLAG_ACTIVITY_NEW_TASK`, so only a real launch in WebGPT's own task
+  shows the splash. For a file share the forward keeps `FLAG_GRANT_READ_URI_PERMISSION` (the
+  `ClipData` is copied with the intent), and every other launch flag of the incoming intent is
+  dropped. Forwarding straight from `onCreate` left several OEM task managers with a task they never
+  brought to the front (the text was copied and the toast appeared, but WebGPT never opened).
+  `MainActivity` keeps a safety net: a text share that still reaches it outside the root of its task
+  is handed to the relay.
 - **Text.** The app copies the text to the clipboard (label from `app_name`; below Android 13 it also
   shows the toast "Text copied — paste it into WebGPT", from Android 13 the system shows its own
   notice), waits until the composer is really ready, focuses it and opens the keyboard. The user
@@ -338,7 +342,8 @@ flow.
   data-URL length within 4000 ms is dropped. Otherwise the app fetches the `blob:` inside the page
   (`blobFetchScript`: `fetch`, then `FileReader.readAsDataURL`, then `onBlobResult`), shows
   "Downloading...", and gives up after 30000 ms with the toast "Download did not complete. Hold down
-  on the image to open the share & download menu."
+  on the image to open the share & download menu." (The image menu passes `announceStart = false`,
+  which skips "Downloading..." and "Downloading <name>...".)
 - **Plain downloads.** http(s) downloads go through a native fetch that carries the WebView's
   cookies, its user agent and the Referer of Site constants; `data:` URLs are saved directly. Below
   Android 10 every save, including blob exports and images, first asks for the storage permission and
@@ -347,7 +352,9 @@ flow.
   Referer and the file name `chatgpt_image_<millis>.<extension>`. Images that exist only inside the
   page (`blob:`) are saved through the blob path and shared by having the page read the blob
   (`fetch`, then `FileReader.readAsDataURL`) and call the bridge's `shareFile`, which is not
-  host-gated (see the bridge gate); inline `data:` images are saved and shared directly.
+  host-gated (see the bridge gate); inline `data:` images are saved and shared directly. The menu
+  shows "Downloading image..." and the save ends with "Saved to Download/<name>"; the blob path's
+  own start toasts are suppressed there, so the user sees exactly those two.
 
 ### Loading, keyboard and viewport
 
@@ -440,6 +447,7 @@ These look removable. Each one broke something.
 | `initialLoadComplete`, and the page-ready signal instead of `onPageFinished` | The loading screen flashes over the chat or hides too early |
 | Progress capped at 90% | The bar claims "loaded" over a page that is not usable |
 | The blob keeper | Exports fail |
+| The share filters on `ShareRelayActivity`, none on `MainActivity` | A `MainActivity` created in the sender's task paints a black launch window over the sender on every text share in dark mode |
 | `adjustResize` | The composer stays under the keyboard in floating windows |
 | Progress colors as literals, and the pinned splash theme | Wrong colors at night; a white flash at launch before Android 12 |
 
