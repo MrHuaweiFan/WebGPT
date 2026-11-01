@@ -1,0 +1,4 @@
+What's new
+
+- The whole app is now written in Kotlin, with the same features.
+- Bug fixes.

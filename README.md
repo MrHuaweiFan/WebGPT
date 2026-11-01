@@ -69,7 +69,7 @@ WebGPT is not a simple WebView wrapper, it offers many extra enhancements for a 
 | --- | --- |
 | [BUILD.md](BUILD.md) | How to build and sign the app |
 | [WEBSITE_SPECIFICS.md](WEBSITE_SPECIFICS.md) | Everything specific to `chatgpt.com`: what went wrong with the site, how WebGPT works around it, and a porting guide |
-| [WEBVIEW_SWITCHER.md](WEBVIEW_SWITCHER.md) | How the in-app WebView switcher works |
+| [WEBVIEW_SWITCHER.md](WEBVIEW_SWITCHER.md) | How the in-app WebView switcher works. The design doc predates the Kotlin tree and still names the old Java files. |
 
 WebGPT is the base app of a family of WebView wrappers for other websites. Each app in the family has its own `WEBSITE_SPECIFICS.md`. In WebGPT it lists everything tied to `chatgpt.com`. In a derived app it lists what that app changed. If you fork WebGPT for another site, read that file first. It tells you what to change and what to leave alone.
 
